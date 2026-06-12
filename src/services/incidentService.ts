@@ -24,6 +24,7 @@ bandAdapter.setDbMirror(async (msg: BandMessage) => {
       payload:                 msg.payload,
       confidence:              msg.confidence,
       requires_human_approval: msg.requires_human_approval,
+      engine:                  msg.engine,
       ts:                      new Date(msg.ts),
     }).catch(() => {/* ignore duplicate key errors */});
   }
@@ -64,6 +65,7 @@ function makeBandHook(roomId: string, incidentId: string) {
       payload:                 result.output ?? {},
       confidence:              result.confidence ?? 0.5,
       requires_human_approval: false,
+      engine:                  result.engine,
     }).catch(() => {});
   };
 }

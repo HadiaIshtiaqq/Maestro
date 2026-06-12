@@ -20,6 +20,7 @@ export interface BandMessage {
   payload: any;
   confidence: number;
   requires_human_approval: boolean;
+  engine?: string;   // which LLM framework produced this message (cross-framework visibility)
   ts: string;
 }
 

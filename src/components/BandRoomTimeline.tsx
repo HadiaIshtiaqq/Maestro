@@ -15,6 +15,7 @@ interface BandMessage {
   payload:                 any;
   confidence:              number;
   requires_human_approval: boolean;
+  engine?:                 string;
   ts:                      string;
 }
 
@@ -198,6 +199,11 @@ export default function BandRoomTimeline({ incidentId, onApprove, onVeto }: Prop
                       {cfg.label}
                     </span>
                     <AgentDot agent={msg.from_agent} />
+                    {msg.engine && (
+                      <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/25 uppercase tracking-wide">
+                        {msg.engine}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     {msg.confidence > 0 && (

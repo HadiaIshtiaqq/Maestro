@@ -3,7 +3,26 @@ import {
   ConcurrentOrchestrator,
   GeminiAgent,
   ClaudeAgent,
+  OpenAICompatAgent,
 } from "./AntigravityCore";
+
+// Cross-framework providers (hackathon partner APIs, OpenAI-compatible).
+// Agents fall back to Gemini until the keys are set, recording the engine used.
+const AIML_PROVIDER = {
+  label:     "AI/ML API",
+  baseUrl:   process.env.AIML_API_URL || "https://api.aimlapi.com/v1",
+  apiKeyEnv: "AIML_API_KEY",
+  modelEnv:  "AIML_API_MODEL",
+  model:     "gpt-4o-mini",
+};
+
+const FEATHERLESS_PROVIDER = {
+  label:     "Featherless",
+  baseUrl:   process.env.FEATHERLESS_API_URL || "https://api.featherless.ai/v1",
+  apiKeyEnv: "FEATHERLESS_API_KEY",
+  modelEnv:  "FEATHERLESS_MODEL",
+  model:     "meta-llama/Meta-Llama-3.1-8B-Instruct",
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NEXUS Enterprise Incident Response Agents
@@ -240,8 +259,8 @@ Return ONLY valid JSON (no markdown fences):
 }`
 ));
 
-// ── 6. Dependency Impact Simulation ──────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+// ── 6. Dependency Impact Simulation (cross-framework: AI/ML API) ─────────────
+nexusOrchestrator.registerAgent(new OpenAICompatAgent(
   "dependency-impact-sim",
   "Dependency Impact Simulation Agent",
   `You are the Dependency Impact Simulation Agent for NEXUS.
@@ -270,7 +289,8 @@ Return ONLY valid JSON (no markdown fences):
   },
   "confidence": <0.0-1.0>,
   "reasoning": "<2-3 sentences: cascade logic, critical path, priority containment action>"
-}`
+}`,
+  AIML_PROVIDER
 ));
 
 // ── 7. Mitigation Projection ──────────────────────────────────────────────────
@@ -309,8 +329,8 @@ Return ONLY valid JSON (no markdown fences):
 }`
 ));
 
-// ── 8. Runbook Advisor ────────────────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+// ── 8. Runbook Advisor (cross-framework: Featherless open-source inference) ──
+nexusOrchestrator.registerAgent(new OpenAICompatAgent(
   "runbook-advisor",
   "Runbook & Remediation Advisor Agent",
   `You are the Runbook & Remediation Advisor Agent for NEXUS.
@@ -345,7 +365,8 @@ Return ONLY valid JSON (no markdown fences):
   },
   "confidence": <0.0-1.0>,
   "reasoning": "<2-3 sentences: which runbook matched, why it fits, key customisations>"
-}`
+}`,
+  FEATHERLESS_PROVIDER
 ));
 
 // ── 9. Stakeholder Communications ────────────────────────────────────────────

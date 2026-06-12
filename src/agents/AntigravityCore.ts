@@ -40,6 +40,7 @@ export interface AgentResult {
   output:     any;
   confidence: number;
   reasoning:  string;
+  engine?:    string;   // which provider actually ran (cross-framework visibility)
   timestamp:  number;
 }
 
@@ -85,6 +86,7 @@ Respond ONLY with a valid JSON object. No markdown fences. No commentary.
       output:     result.output     ?? result,
       confidence: result.confidence ?? 0.5,
       reasoning:  result.reasoning  ?? 'Executed via Gemini LLM',
+      engine:     'Gemini',
       timestamp:  Date.now(),
     };
   }
@@ -121,6 +123,89 @@ Respond ONLY with a valid JSON object. No markdown fences. No commentary.
       output:     result?.output     ?? result,
       confidence: result?.confidence ?? 0.5,
       reasoning:  `${result?.reasoning ?? 'Executed'} [via ${engine}]`,
+      engine,
+      timestamp:  Date.now(),
+    };
+  }
+}
+
+// ─── OpenAICompatAgent (cross-framework — AI/ML API, Featherless, etc.) ──────
+// Runs any OpenAI-compatible chat-completions endpoint. Falls back to Gemini
+// when the provider key is missing or the call fails, recording which engine
+// actually ran in the result (visible in the Band room trail).
+
+export interface OpenAICompatConfig {
+  label:     string;   // e.g. "AI/ML API", "Featherless"
+  baseUrl:   string;   // e.g. https://api.aimlapi.com/v1
+  apiKeyEnv: string;   // env var holding the key, e.g. AIML_API_KEY
+  modelEnv:  string;   // env var overriding the model
+  model:     string;   // default model id
+}
+
+export class OpenAICompatAgent extends AntigravityAgent {
+  constructor(
+    id: string,
+    name: string,
+    private systemPrompt: string,
+    private cfg: OpenAICompatConfig,
+  ) {
+    super(id, name);
+  }
+
+  async execute(task: AgentTask): Promise<AgentResult> {
+    const prompt = `
+${this.systemPrompt}
+
+=== INCOMING TASK ===
+Task ID   : ${task.id}
+Task Type : ${task.type}
+Signal/Data: ${JSON.stringify(task.data, null, 2)}
+Prior Agent Context: ${JSON.stringify(task.context ?? {}, null, 2)}
+
+Respond ONLY with a valid JSON object. No markdown fences. No commentary.
+`;
+
+    const apiKey = process.env[this.cfg.apiKeyEnv];
+    const model  = process.env[this.cfg.modelEnv] || this.cfg.model;
+
+    if (apiKey) {
+      try {
+        const res = await fetch(`${this.cfg.baseUrl}/chat/completions`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body:    JSON.stringify({
+            model,
+            messages:   [{ role: "user", content: prompt }],
+            max_tokens: 4096,
+          }),
+        });
+        if (!res.ok) throw new Error(`${this.cfg.label} ${res.status}: ${(await res.text()).slice(0, 200)}`);
+        const data: any = await res.json();
+        const text = (data.choices?.[0]?.message?.content ?? "").trim();
+        const clean = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+        const parsed = JSON.parse(clean);
+        const engine = `${this.cfg.label} (${model})`;
+        console.log(`[${this.cfg.label}] → ${model} OK for ${this.id}`);
+        return {
+          agentId:    this.id,
+          output:     parsed.output     ?? parsed,
+          confidence: parsed.confidence ?? 0.5,
+          reasoning:  `${parsed.reasoning ?? 'Executed'} [via ${engine}]`,
+          engine,
+          timestamp:  Date.now(),
+        };
+      } catch (err: any) {
+        console.warn(`[${this.cfg.label}] Failed for ${this.id} — falling back to Gemini:`, err.message);
+      }
+    }
+
+    const result = await askGemini(prompt);
+    return {
+      agentId:    this.id,
+      output:     result.output     ?? result,
+      confidence: result.confidence ?? 0.5,
+      reasoning:  `${result.reasoning ?? 'Executed'} [via Gemini (fallback)]`,
+      engine:     'Gemini (fallback)',
       timestamp:  Date.now(),
     };
   }
