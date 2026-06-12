@@ -1,4 +1,5 @@
 import express from "express";
+import dns from "dns";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import http from "http";
@@ -31,6 +32,11 @@ async function startServer() {
   app.use(express.json({ limit: '15mb' }));
 
   // ── MongoDB ────────────────────────────────────────────────────────────────
+  // Atlas SRV lookups fail on some local DNS resolvers — DNS_SERVERS overrides.
+  if (config.mongodb.dnsServers.length > 0) {
+    dns.setServers(config.mongodb.dnsServers);
+    console.log("[DNS] Using resolvers:", config.mongodb.dnsServers.join(", "));
+  }
   try {
     await mongoose.connect(config.mongodb.uri, {
       serverSelectionTimeoutMS: 30000,
