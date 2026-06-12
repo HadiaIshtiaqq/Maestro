@@ -32,12 +32,20 @@ export interface AllocationRequest {
   requestedResources?: Record<ResourceType, number>;
 }
 
+export interface Reallocation {
+  fromIncidentId: string;
+  type:           ResourceType;
+  count:          number;
+  remaining:      number;   // what the victim incident still holds of this type
+}
+
 export interface AllocationResult {
   granted:       Record<ResourceType, number>;
   denied:        Record<ResourceType, number>;
   priorityRank:  number;
   totalActive:   number;
   tradeoffs:     string[];
+  reallocations: Reallocation[];
   trace_log:     Array<{ step: string; decision: string; reason: string }>;
 }
 
@@ -63,7 +71,7 @@ const SEVERITY_WEIGHT: Record<string, number> = {
 
 // ─── ResourceManager Singleton ───────────────────────────────────────────────
 
-class ResourceManager {
+export class ResourceManager {
   private allocations: Map<string, ResourceAllocation> = new Map();
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -122,6 +130,7 @@ class ResourceManager {
     const granted   = this.emptyPool();
     const denied    = this.emptyPool();
     const tradeoffs: string[] = [];
+    const reallocations: Reallocation[] = [];
 
     const priorityScore = this.computePriority(req.severity, req.confidence);
 
@@ -157,6 +166,12 @@ class ResourceManager {
             lower.allocated[type] = (lower.allocated[type] ?? 0) - canTake;
             granted[type] += canTake;
             shortfall     -= canTake;
+            reallocations.push({
+              fromIncidentId: lower.incidentId,
+              type,
+              count:     canTake,
+              remaining: lower.allocated[type],
+            });
             const msg = `Reallocated ${canTake} ${type}(s) from ${lower.incidentId} ` +
               `(priority ${lower.priorityScore}) → ${req.incidentId} (priority ${priorityScore})`;
             tradeoffs.push(msg);
@@ -193,7 +208,7 @@ class ResourceManager {
     const allScores    = [...this.allocations.values()].map(a => a.priorityScore).sort((a, b) => b - a);
     const priorityRank = allScores.indexOf(priorityScore) + 1;
 
-    return { granted, denied, priorityRank, totalActive: this.allocations.size, tradeoffs, trace_log: traceLog };
+    return { granted, denied, priorityRank, totalActive: this.allocations.size, tradeoffs, reallocations, trace_log: traceLog };
   }
 
   /**

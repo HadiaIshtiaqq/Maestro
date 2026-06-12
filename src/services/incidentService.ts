@@ -54,6 +54,47 @@ function sevToLegacy(sevLevel: string): 'low' | 'medium' | 'high' | 'critical' {
   return 'low';
 }
 
+// When a higher-priority incident reclaims units from lower-priority ones,
+// the victims must know: update their incident docs and post a status message
+// into each victim's Band room so the loss is visible and audited.
+async function notifyReallocations(
+  reallocations: import("./resourceManager").Reallocation[],
+  toIncidentId: string
+): Promise<void> {
+  for (const r of reallocations) {
+    try {
+      const victim = await Incident.findOneAndUpdate(
+        { incidentId: r.fromIncidentId },
+        {
+          $set:  { [`allocatedResources.${r.type}`]: r.remaining },
+          $push: { resourceTradeoffs: `${r.count} ${r.type}(s) reallocated to higher-priority incident ${toIncidentId}` },
+        },
+        { new: true }
+      );
+      if (victim?.roomId) {
+        await bandAdapter.post(victim.roomId, {
+          msg_type:                'status',
+          from_agent:              'incident-commander',
+          incident_id:             r.fromIncidentId,
+          step:                    'resource-reallocation',
+          payload: {
+            message: `${r.count} ${r.type}(s) reallocated to higher-priority incident ${toIncidentId} — ${r.remaining} remaining`,
+            reallocatedTo: toIncidentId,
+            type: r.type,
+            count: r.count,
+            remaining: r.remaining,
+          },
+          confidence:              1.0,
+          requires_human_approval: false,
+        }).catch(() => {});
+      }
+      if (victim) eventBus.emit('incident:updated', { incident: victim });
+    } catch (err: any) {
+      console.warn(`[Resources] Reallocation notice failed for ${r.fromIncidentId}:`, err.message);
+    }
+  }
+}
+
 // Band posting callback — passed to each pipeline phase so findings appear live
 function makeBandHook(roomId: string, incidentId: string) {
   return async (agentId: string, result: AgentResult): Promise<void> => {
@@ -199,6 +240,7 @@ export class IncidentService {
       severity,
       confidence:   cmdResult.confidence ?? 0.6,
     });
+    await notifyReallocations(resourceResult.reallocations, incidentId);
 
     // 10. Build combined trace log
     const allResults = [...phase1Trace.results, ...phase2Trace.results, cmdResult];
@@ -425,6 +467,7 @@ export class IncidentService {
         await BandRoomModel.create({ room_id: room.room_id, incident_id: incidentId, participants: room.participants, status: 'open', created_at: new Date() }).catch(() => {});
 
         const resourceResult = resourceManager.allocate({ incidentId, incidentType: phase1Context['classification']?.primaryType ?? 'Unknown', severity, confidence: 0.6, ...(manualLocation ? { location: manualLocation } : {}) });
+        await notifyReallocations(resourceResult.reallocations, incidentId);
 
         const updatedIncident = await Incident.findOneAndUpdate(
           { incidentId },

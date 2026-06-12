@@ -198,10 +198,20 @@ router.post("/chat/incident", async (req, res) => {
 // VOICE TRANSCRIPTION (Gemini multimodal)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const MAX_AUDIO_BASE64_CHARS = 8 * 1024 * 1024; // ~6MB of audio
+
 router.post("/voice-transcribe", async (req, res) => {
   try {
     const { audioBase64, mimeType = "audio/mp4" } = req.body;
-    if (!audioBase64) return res.status(400).json({ error: "audioBase64 required" });
+    if (!audioBase64 || typeof audioBase64 !== "string") {
+      return res.status(400).json({ error: "audioBase64 required" });
+    }
+    if (audioBase64.length > MAX_AUDIO_BASE64_CHARS) {
+      return res.status(413).json({ error: "Audio too large — max ~6MB" });
+    }
+    if (typeof mimeType !== "string" || !mimeType.startsWith("audio/")) {
+      return res.status(400).json({ error: "mimeType must be an audio/* type" });
+    }
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });

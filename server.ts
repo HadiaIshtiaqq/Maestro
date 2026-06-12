@@ -12,6 +12,7 @@ import { config } from "./src/config/index";
 import routes from "./src/routes/index";
 import userRoutes from "./src/routes/users";
 import { setupSocketHandlers } from "./src/events/socketHandlers";
+import { errorMiddleware } from "./src/middlewares/index";
 import { startLiveDataPolling } from "./src/services/realDataService";
 import { startAutonomousActions, registerBroadcast } from "./src/services/autonomousActions";
 import { startEscalationService } from "./src/services/escalationService";
@@ -19,15 +20,22 @@ import { bandAdapter } from "./src/band/adapter";
 import { seedDemoIncidents } from "./src/scripts/seedDemoData";
 
 async function startServer() {
+  // CORS_ORIGIN: comma-separated allowlist; unset = open (warn in production)
+  const corsOrigin: string | string[] =
+    process.env.CORS_ORIGIN?.split(",").map(s => s.trim()).filter(Boolean) ?? "*";
+  if (corsOrigin === "*" && config.env === "production") {
+    console.warn("[CORS] CORS_ORIGIN not set — all origins allowed. Set it for public hosting.");
+  }
+
   const app    = express();
   const server = http.createServer(app);
   const io     = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
+    cors: { origin: corsOrigin, methods: ["GET", "POST"] },
   });
 
   // ── Middleware ─────────────────────────────────────────────────────────────
   app.use(helmet({ contentSecurityPolicy: false }));
-  app.use(cors());
+  app.use(cors({ origin: corsOrigin }));
   app.use(morgan("dev"));
   app.use(express.json({ limit: '15mb' }));
 
@@ -42,8 +50,10 @@ async function startServer() {
       serverSelectionTimeoutMS: 30000,
     });
     console.log("[MongoDB] Connected to", config.mongodb.uri);
-    // Auto-seed demo data if the DB is empty
-    await seedDemoIncidents();
+    // Auto-seed demo data if the DB is empty (never silently in production)
+    if (config.env !== "production" || process.env.SEED_DEMO === "true") {
+      await seedDemoIncidents();
+    }
   } catch (err) {
     console.warn("[MongoDB] Connection failed — running without persistence:", err);
   }
@@ -59,6 +69,9 @@ async function startServer() {
       mongo:     mongoose.connection.readyState === 1 ? "connected" : "disconnected",
     });
   });
+
+  // Error handler for uncaught route errors (was defined but never mounted)
+  app.use(errorMiddleware);
 
   // ── Socket.IO (wires eventBus → broadcasts) ────────────────────────────────
   setupSocketHandlers(io);
