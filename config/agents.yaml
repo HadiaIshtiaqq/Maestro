@@ -1,0 +1,60 @@
+# NEXUS Agent Credentials
+# Fill in agent_id (UUID from Band agent details page) and api_key (shown at creation).
+# One block per agent role. These are injected into each Docker service via env vars.
+# See docker-compose.yml for the mapping.
+
+agents:
+  - role: intake-normalization
+    agent_id: ""   # UUID from Band agent details page
+    api_key:  ""   # API key shown at agent creation
+    model: gemini-2.0-flash
+
+  - role: correlation-dedup
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: validation-credibility
+    agent_id: ""
+    api_key:  ""
+    model: claude-sonnet-4-6   # Cross-framework: Anthropic Claude
+
+  - role: classification
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: severity-blast-radius
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: responder-allocation
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: dependency-impact-sim
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: mitigation-projection
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: runbook-advisor
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: stakeholder-comms
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash
+
+  - role: incident-commander
+    agent_id: ""
+    api_key:  ""
+    model: gemini-2.0-flash

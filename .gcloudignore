@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+node_modules
+mobile/node_modules
+dist
+scratch
+*.md
+.idea
+.claude
