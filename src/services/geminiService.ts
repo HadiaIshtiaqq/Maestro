@@ -18,6 +18,7 @@ function buildFallback(prompt: string): any {
     output: { ...output, degraded: true },
     confidence: 0.2,
     reasoning: DEGRADED_REASON,
+    __engine: "degraded (no LLM)",
   });
 
   if (prompt.includes("Intake & Normalization"))
@@ -70,11 +71,42 @@ async function callGemini(prompt: string, jsonResponse: boolean, attempt: number
   }
 }
 
+// ── Secondary engine: AI/ML API (OpenAI-compatible) ──────────────────────────
+// Used when Gemini is unavailable (quota/outage) and AIML_API_KEY is set.
+// Results carry __engine so agents attribute the framework honestly.
+
+async function askAimlFallback(prompt: string, jsonResponse: boolean): Promise<any | null> {
+  const apiKey = process.env.AIML_API_KEY;
+  if (!apiKey) return null;
+  const model = process.env.AIML_API_MODEL || "gpt-4o-mini";
+  try {
+    const res = await fetch(`${process.env.AIML_API_URL || "https://api.aimlapi.com/v1"}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body:    JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 4096 }),
+    });
+    if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 150)}`);
+    const data: any = await res.json();
+    const text = (data.choices?.[0]?.message?.content ?? "").trim();
+    if (!text) return null;
+    if (!jsonResponse) return text;
+    const clean = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    const parsed = JSON.parse(clean);
+    parsed.__engine = `AI/ML API (${model})`;
+    console.log(`[AI/ML API] Fallback OK via ${model}`);
+    return parsed;
+  } catch (err: any) {
+    console.warn("[AI/ML API] Fallback failed:", err.message);
+    return null;
+  }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 export async function askGemini(prompt: string, jsonResponse: boolean = true): Promise<any> {
   if (!config.gemini.apiKey) {
-    console.warn("[Gemini] No API key — using fallback");
-    return buildFallback(prompt);
+    console.warn("[Gemini] No API key — trying AI/ML API fallback");
+    const aiml = await askAimlFallback(prompt, jsonResponse);
+    return aiml ?? buildFallback(prompt);
   }
 
   // Cache check — key must cover the FULL prompt: every agent prompt starts with
@@ -92,7 +124,12 @@ export async function askGemini(prompt: string, jsonResponse: boolean = true): P
     responseCache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
     return result;
   } catch (err: any) {
-    console.error(`[Gemini] All retries failed — using fallback. Error: ${err.message}`);
+    console.error(`[Gemini] All retries failed (${err.message}) — trying AI/ML API fallback`);
+    const aiml = await askAimlFallback(prompt, jsonResponse);
+    if (aiml) {
+      responseCache.set(cacheKey, { result: aiml, expiresAt: Date.now() + CACHE_TTL_MS });
+      return aiml;
+    }
     return buildFallback(prompt);
   }
 }

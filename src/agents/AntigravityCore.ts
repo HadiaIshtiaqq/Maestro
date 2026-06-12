@@ -81,12 +81,13 @@ Respond ONLY with a valid JSON object. No markdown fences. No commentary.
 `;
 
     const result = await askGemini(prompt);
+    const engine = result.__engine ?? 'Gemini';
     return {
       agentId:    this.id,
       output:     result.output     ?? result,
       confidence: result.confidence ?? 0.5,
-      reasoning:  result.reasoning  ?? 'Executed via Gemini LLM',
-      engine:     'Gemini',
+      reasoning:  `${result.reasoning ?? 'Executed via LLM'}${engine !== 'Gemini' ? ` [via ${engine}]` : ''}`,
+      engine,
       timestamp:  Date.now(),
     };
   }
@@ -113,10 +114,13 @@ Prior Agent Context: ${JSON.stringify(task.context ?? {}, null, 2)}
 Respond ONLY with a valid JSON object. No markdown fences. No commentary.
 `;
 
-    // Try Claude first; fall back to Gemini when no API key
+    // Try Claude first; fall back to Gemini/AI-ML when no API key
     let result = await askClaude(prompt);
-    const engine = result ? 'Claude' : 'Gemini (fallback)';
-    if (!result) result = await askGemini(prompt);
+    let engine = 'Claude';
+    if (!result) {
+      result = await askGemini(prompt);
+      engine = result?.__engine ? `${result.__engine} (fallback)` : 'Gemini (fallback)';
+    }
 
     return {
       agentId:    this.id,
@@ -200,12 +204,13 @@ Respond ONLY with a valid JSON object. No markdown fences. No commentary.
     }
 
     const result = await askGemini(prompt);
+    const fallbackEngine = result.__engine ? `${result.__engine} (fallback)` : 'Gemini (fallback)';
     return {
       agentId:    this.id,
       output:     result.output     ?? result,
       confidence: result.confidence ?? 0.5,
-      reasoning:  `${result.reasoning ?? 'Executed'} [via Gemini (fallback)]`,
-      engine:     'Gemini (fallback)',
+      reasoning:  `${result.reasoning ?? 'Executed'} [via ${fallbackEngine}]`,
+      engine:     fallbackEngine,
       timestamp:  Date.now(),
     };
   }
