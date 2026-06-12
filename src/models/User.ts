@@ -52,4 +52,6 @@ const UserSchema: Schema = new Schema({
 
 UserSchema.index({ 'location.lat': 1, 'location.lng': 1 });
 
-export const User = mongoose.model<IUser>('User', UserSchema);
+export const User: mongoose.Model<IUser> =
+  (mongoose.models['User'] as mongoose.Model<IUser>) ??
+  mongoose.model<IUser>('User', UserSchema);

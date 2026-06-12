@@ -59,6 +59,9 @@ npx tsx scenarios/demo_runner.ts all   # fires 3 demo scenarios
 | `VITE_OPERATOR_KEY` | Same value, exposed to the operator web UI |
 | `VITE_GOOGLE_MAPS_API_KEY` | Dashboard maps (restrict by HTTP referrer) |
 | `BAND_USE_SDK`, `BAND_API_URL`, `BAND_API_KEY` | Switch from the mock Band adapter to the real Band platform (credentials from kickoff) |
+| `AIML_API_KEY`, `FEATHERLESS_API_KEY` | Cross-framework partner providers (agents fall back to Gemini when unset) |
+| `CORS_ORIGIN` | Comma-separated CORS allowlist (unset = open; set for public hosting) |
+| `LIVE_DATA_POLLING` | `true` enables real GDACS/USGS/Open-Meteo ingestion (off by default — each event runs the full pipeline) |
 
 ## Key API Endpoints
 
@@ -131,6 +134,7 @@ Shared on-call headcount, contended across concurrent incidents ([src/services/r
 - `MockBandAdapter` is the default until Band platform credentials are wired in (`BAND_USE_SDK=true`).
 - The audit trail is durable (mirror is awaited before a message is considered posted) but not cryptographically immutable — no hash chain.
 - The "social/traffic feed" panels in the signal-input UI are **AI-generated simulations**, labeled as such in the response.
+- Autonomous-action side-effects (PagerDuty paging, Slack war-rooms, SMS retractions) are **simulated** (`simulated: true` on every record) — the decision logic is real, the integrations are demo stand-ins.
 - Resource pool and approval gates are in-memory; single-node only.
 - The Expo mobile app (`mobile/`) is a companion citizen-reporting client and not part of the Track 3 submission scope. Set `EXPO_PUBLIC_API_URL` for LAN development.
 

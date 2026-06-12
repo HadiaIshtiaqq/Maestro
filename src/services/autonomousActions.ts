@@ -24,6 +24,7 @@ interface IAutonomousAction extends Document {
   rationale:   string;
   actionsToken: string[];
   autonomous:  boolean;
+  simulated:   boolean;   // true: side-effects (paging, SMS, Slack) are demo simulations
   triggeredAt: Date;
 }
 
@@ -35,10 +36,13 @@ const AutonomousActionSchema = new Schema<IAutonomousAction>({
   rationale:    { type: String },
   actionsToken: [{ type: String }],
   autonomous:   { type: Boolean, default: true },
+  simulated:    { type: Boolean, default: true },
   triggeredAt:  { type: Date, default: Date.now },
 }, { timestamps: true });
 
-export const AutonomousAction = mongoose.model<IAutonomousAction>("AutonomousAction", AutonomousActionSchema);
+export const AutonomousAction: mongoose.Model<IAutonomousAction> =
+  (mongoose.models["AutonomousAction"] as mongoose.Model<IAutonomousAction>) ??
+  mongoose.model<IAutonomousAction>("AutonomousAction", AutonomousActionSchema);
 
 // ── Callback reference so external code can broadcast via Socket.IO ───────────
 let broadcastFn: ((event: string, data: any) => void) | null = null;
@@ -88,6 +92,7 @@ async function handleCriticalIncident(incident: any): Promise<void> {
   console.log(`[Autonomous] CRITICAL incident ${incident.incidentId} — auto-dispatch triggered`);
   broadcast("autonomous:action", {
     type:       "critical_auto_dispatch",
+    simulated:  true,
     incidentId: incident.incidentId,
     severity:   "critical",
     actions,
@@ -122,6 +127,7 @@ async function handleFalsePositive(payload: any): Promise<void> {
   console.log(`[Autonomous] False positive ${payload.incidentId} — auto-retraction triggered`);
   broadcast("autonomous:action", {
     type:       "false_positive_retraction",
+    simulated:  true,
     incidentId: payload.incidentId,
     actions,
     timestamp:  new Date().toISOString(),
@@ -160,6 +166,7 @@ async function monitorResourceContention(): Promise<void> {
 
   broadcast("autonomous:action", {
     type:      "resource_shortage",
+    simulated: true,
     shortages,
     actions,
     timestamp: new Date().toISOString(),

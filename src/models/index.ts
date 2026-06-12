@@ -161,7 +161,9 @@ const SignalSchema: Schema = new Schema({
   timestamp: { type: Date, default: Date.now },
 });
 
-export const Signal = mongoose.model<ISignal>('Signal', SignalSchema);
+export const Signal: mongoose.Model<ISignal> =
+  (mongoose.models['Signal'] as mongoose.Model<ISignal>) ??
+  mongoose.model<ISignal>('Signal', SignalSchema);
 
 // ─── Incident ─────────────────────────────────────────────────────────────────
 
@@ -292,7 +294,9 @@ const IncidentSchema: Schema = new Schema({
   metadata: { type: Schema.Types.Mixed },
 }, { timestamps: true });
 
-export const Incident = mongoose.model<IIncident>('Incident', IncidentSchema);
+export const Incident: mongoose.Model<IIncident> =
+  (mongoose.models['Incident'] as mongoose.Model<IIncident>) ??
+  mongoose.model<IIncident>('Incident', IncidentSchema);
 
 // ─── DispatchLog ──────────────────────────────────────────────────────────────
 
@@ -318,4 +322,6 @@ const DispatchLogSchema = new Schema<IDispatchLog>({
   acknowledgedAt: { type: Date },
 }, { timestamps: true });
 
-export const DispatchLog = mongoose.model<IDispatchLog>('DispatchLog', DispatchLogSchema);
+export const DispatchLog: mongoose.Model<IDispatchLog> =
+  (mongoose.models['DispatchLog'] as mongoose.Model<IDispatchLog>) ??
+  mongoose.model<IDispatchLog>('DispatchLog', DispatchLogSchema);

@@ -18,6 +18,10 @@ function severityEmoji(s: string) {
 
 export async function notifyUsersNearIncident(incident: IIncident): Promise<void> {
   try {
+    // Enterprise incidents are region-based and carry no coordinates —
+    // proximity alerts only apply to geolocated (civic/mobile) incidents.
+    if (incident.location?.lat == null || incident.location?.lng == null) return;
+
     const allUsers = await User.find({});
     const affected: IUser[] = [];
 

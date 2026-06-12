@@ -112,7 +112,13 @@ async function startServer() {
   }
 
   // ── Live Data Polling (GDACS + USGS + Open-Meteo) ─────────────────────────
-  startLiveDataPolling();
+  // Opt-in: every external event runs the full LLM pipeline and creates real
+  // incidents — keep it off during demos unless explicitly wanted.
+  if (process.env.LIVE_DATA_POLLING === "true") {
+    startLiveDataPolling();
+  } else {
+    console.log("[RealData] Live polling disabled (set LIVE_DATA_POLLING=true to enable)");
+  }
 
   // ── Escalation Service (auto-escalate stuck incidents) ────────────────────
   startEscalationService();
