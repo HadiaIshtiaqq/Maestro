@@ -11,7 +11,7 @@ import { Incident, DispatchLog, AgentMessage, BandRoom as BandRoomModel, Approva
 import { eventBus } from "../events/eventBus";
 import { bandAdapter } from "../band/adapter";
 import { submitDecision, getPendingApprovals } from "../services/approvalService";
-import { operatorAuth } from "../middlewares/index";
+import { operatorAuth, rateLimit } from "../middlewares/index";
 import { z } from "zod";
 
 const router = Router();
@@ -30,6 +30,14 @@ router.use("/operator", operatorAuth);
 router.use("/band/approve", operatorAuth);
 router.use("/band/veto", operatorAuth);
 router.use("/seed-demo", operatorAuth);
+
+// LLM-backed endpoints: each call is expensive — cap per IP per minute
+router.use("/ingest-signal", rateLimit(10));
+router.use("/signals", rateLimit(10));
+router.use("/chat", rateLimit(20));
+router.use("/voice-transcribe", rateLimit(6));
+router.use("/simulate", rateLimit(6));
+router.use("/data/live-context", rateLimit(12));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SIGNAL ROUTES
@@ -55,7 +63,7 @@ router.post("/ingest-signal", async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid signal payload", issues: parsed.error.issues });
     }
-    const { source, location, ...rest } = parsed.data;
+    const { source, location, async: runAsync, ...rest } = parsed.data as any;
 
     if (source === "call" && rest.type === "manual_report") {
       const result = await IncidentService.processManualReport(
@@ -63,6 +71,17 @@ router.post("/ingest-signal", async (req, res) => {
         location ?? undefined
       );
       return res.status(201).json(result);
+    }
+
+    // async: true → acknowledge immediately, run the multi-agent pipeline in
+    // the background (results arrive via Socket.IO incident:created/updated)
+    if (runAsync === true) {
+      IncidentService.processNewSignal({ ...rest, source: source as any, timestamp: new Date() })
+        .catch(err => console.error("[Ingest] Background pipeline failed:", err));
+      return res.status(202).json({
+        accepted: true,
+        message:  "Signal accepted — pipeline running; watch incident:created / band:message events",
+      });
     }
 
     const result = await IncidentService.processNewSignal({
@@ -611,33 +630,29 @@ router.post("/simulate/false-positive", async (req, res) => {
 
 router.post("/simulate/stress-test", async (req, res) => {
   try {
-    const sector = req.body.sector ?? { A: { lat: 24.8607, lng: 67.0011 }, B: { lat: 24.9056, lng: 67.0822 } };
-
-    const [floodResult, heatwaveResult] = await Promise.all([
+    const [breachResult, outageResult] = await Promise.all([
       IncidentService.processNewSignal({
-        source:    "weather",
-        type:      "flood_alert",
-        data:      { rainfall_mm: 75, duration_hrs: 1.5, drain_capacity: "overwhelmed", description: "Flash flood — Sector A downtown" },
-        location:  sector.A,
+        source:    "siem",
+        type:      "credential_stuffing",
+        data:      { failed_attempts_5min: 14200, unique_ips: 630, service: "customer-identity", description: "Credential stuffing surge against production identity service" },
         urgency:   9,
         timestamp: new Date(),
       }),
       IncidentService.processNewSignal({
-        source:    "sensor",
-        type:      "heatwave_alert",
-        data:      { temperature_c: 47, humidity_pct: 15, heat_index: "extreme", description: "Heatwave emergency — Sector B residential" },
-        location:  sector.B,
+        source:    "monitoring",
+        type:      "service_outage",
+        data:      { service: "payments-api", error_rate_pct: 84, p99_latency_ms: 30000, description: "Payments API error-rate spike — checkout failing" },
         urgency:   8,
         timestamp: new Date(),
       }),
     ]);
 
     res.json({
-      scenario:  "Simultaneous Flood (Sector A) + Heatwave (Sector B)",
+      scenario:  "Simultaneous Security Breach + Platform Outage (shared on-call pool)",
       startedAt: new Date().toISOString(),
       results: {
-        floodIncident:    floodResult,
-        heatwaveIncident: heatwaveResult,
+        securityIncident: breachResult,
+        outageIncident:   outageResult,
       },
       resourceContention: resourceManager.getStatus(),
     });
@@ -648,24 +663,22 @@ router.post("/simulate/stress-test", async (req, res) => {
 
 router.post("/simulate/disaster", async (req, res) => {
   try {
-    const center = req.body.center ?? { lat: 33.6844, lng: 73.0479 };
     const [r1, r2, r3] = await Promise.all([
-      IncidentService.processNewSignal({ source: "sensor",  type: "building_collapse", data: { casualties_est: 45, structure: "commercial", description: "Multi-storey collapse — Disaster scenario" }, location: center, urgency: 10, timestamp: new Date() }),
-      IncidentService.processNewSignal({ source: "weather", type: "flood_alert",       data: { rainfall_mm: 90, description: "Flash flood triggered by disaster" }, location: { lat: center.lat + 0.01, lng: center.lng + 0.01 }, urgency: 9, timestamp: new Date() }),
-      IncidentService.processNewSignal({ source: "social",  type: "fire_emergency",    data: { spread_rate: "rapid", description: "Post-collapse fire" }, location: { lat: center.lat - 0.01, lng: center.lng - 0.01 }, urgency: 9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "sensor",     type: "datacenter_power_failure", data: { site: "us-east-dc2", ups_status: "battery", runtime_min: 18, description: "Primary datacenter on UPS — generator failed to start" }, urgency: 10, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "monitoring", type: "db_replication_failure",   data: { cluster: "orders-primary", replication_lag_s: 1900, description: "Replica lag past failover threshold — split-brain risk" }, urgency: 9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "siem",       type: "data_exfil_alert",         data: { egress_gb: 41, destination: "unrecognized ASN", description: "Anomalous bulk egress during outage window" }, urgency: 9, timestamp: new Date() }),
     ]);
-    res.json({ scenario: "DISASTER — Mass Casualty Event", incidents: [r1, r2, r3], resources: resourceManager.getStatus() });
+    res.json({ scenario: "CASCADING FAILURE — power loss + replication failure + suspected exfiltration", incidents: [r1, r2, r3], resources: resourceManager.getStatus() });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.post("/simulate/world-cup", async (req, res) => {
   try {
-    const venue = req.body.venue ?? { lat: 33.7294, lng: 73.0931 };
     const [r1, r2] = await Promise.all([
-      IncidentService.processNewSignal({ source: "social", type: "crowd_surge", data: { crowd_est: 80000, density: "critical", description: "Crowd crush near stadium gates — World Cup mode" }, location: venue, urgency: 9, timestamp: new Date() }),
-      IncidentService.processNewSignal({ source: "sensor", type: "medical_emergency", data: { patients_est: 20, triage_level: "mass_casualty", description: "Medical emergency — stadium crowd" }, location: { lat: venue.lat + 0.005, lng: venue.lng }, urgency: 8, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "monitoring", type: "traffic_surge", data: { rps_multiplier: 14, autoscaler: "at max", service: "storefront", description: "Peak-event traffic surge — autoscaling exhausted" }, urgency: 9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "siem",       type: "ddos_suspected", data: { rps_from_top_asn_pct: 61, description: "Traffic concentration suggests volumetric DDoS riding the peak event" }, urgency: 8, timestamp: new Date() }),
     ]);
-    res.json({ scenario: "WORLD CUP — Crowd Surge Event", incidents: [r1, r2], resources: resourceManager.getStatus() });
+    res.json({ scenario: "PEAK EVENT — traffic surge + suspected DDoS", incidents: [r1, r2], resources: resourceManager.getStatus() });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

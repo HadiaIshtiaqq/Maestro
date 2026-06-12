@@ -121,7 +121,8 @@ export const Responder: mongoose.Model<IResponder> =
 // ─── Signal ───────────────────────────────────────────────────────────────────
 
 export interface ISignal extends Document {
-  source: 'social' | 'weather' | 'traffic' | 'sensor' | 'call' | 'field';
+  source: 'social' | 'weather' | 'traffic' | 'sensor' | 'call' | 'field'
+        | 'siem' | 'monitoring' | 'ticket' | 'human' | 'field_officer';
   type: string;
   data: any;
   location?: { lat: number; lng: number };

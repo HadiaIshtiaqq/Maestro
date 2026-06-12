@@ -109,6 +109,36 @@ async function startServer() {
     } catch (err: any) {
       console.warn("[Band] Room hydration failed:", err.message);
     }
+
+    // Approval gates are in-memory promises and do not survive restarts.
+    // Orphaned pending approvals are auto-vetoed (same safety policy as the
+    // 5-minute timeout) so incidents never hang in limbo after a redeploy.
+    try {
+      const { Incident } = await import("./src/models/index");
+      const { resourceManager } = await import("./src/services/resourceManager");
+      const orphaned = await Incident.find({ pendingApprovalId: { $ne: null } });
+      for (const inc of orphaned) {
+        await Incident.findOneAndUpdate(
+          { incidentId: inc.incidentId },
+          { $set: { status: "retracted", pendingApprovalId: null, "metadata.orphanedApprovalVetoedAt": new Date() } }
+        );
+        resourceManager.release(inc.incidentId);
+        if (inc.roomId) {
+          await bandAdapter.post(inc.roomId, {
+            msg_type:                "retraction",
+            from_agent:              "incident-commander",
+            incident_id:             inc.incidentId,
+            step:                    "orphaned-approval-veto",
+            payload:                 { reason: "Server restarted while approval was pending — auto-vetoed for safety" },
+            confidence:              1.0,
+            requires_human_approval: false,
+          }).catch(() => {});
+        }
+        console.warn(`[Approval] Orphaned pending approval on ${inc.incidentId} auto-vetoed after restart`);
+      }
+    } catch (err: any) {
+      console.warn("[Approval] Orphan sweep failed:", err.message);
+    }
   }
 
   // ── Live Data Polling (GDACS + USGS + Open-Meteo) ─────────────────────────

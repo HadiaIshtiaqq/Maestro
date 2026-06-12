@@ -170,12 +170,12 @@ export default function TopBar({
         <button
           onClick={async () => { try { await fetch("/api/simulate/disaster", { method: "POST" }); } catch {} }}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-800/50 text-red-400 text-[9px] font-black uppercase tracking-wider hover:bg-red-900/30 transition-all">
-          <AlertTriangle className="w-3 h-3" />Disaster
+          <AlertTriangle className="w-3 h-3" />Cascading Failure
         </button>
         <button
           onClick={async () => { try { await fetch("/api/simulate/world-cup", { method: "POST" }); } catch {} }}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-yellow-800/50 text-yellow-400 text-[9px] font-black uppercase tracking-wider hover:bg-yellow-900/30 transition-all">
-          🏆 World Cup
+          ⚡ Peak Event
         </button>
       </div>
 

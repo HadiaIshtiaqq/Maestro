@@ -9,6 +9,7 @@ import { BandMessage }        from "../band/types";
 import { AgentTask, AgentResult } from "../agents/AntigravityCore";
 import { CommanderTriageAgent, buildTriggerMsg } from "../agents/base";
 import { v4 as uuidv4 }       from "uuid";
+import mongoose               from "mongoose";
 
 // ─── Wire Band adapter → MongoDB mirror ───────────────────────────────────────
 
@@ -121,8 +122,52 @@ export class IncidentService {
   //       → Phase 2 (post findings live) → Commander synthesis + approval_request
   //       → background gate: on approval run Comms + update status; on veto retract.
 
+  // Same-type signals arriving within this window attach to the existing
+  // incident instead of opening a duplicate room.
+  static readonly DEDUP_WINDOW_MS = 15 * 60 * 1000;
+
   static async processNewSignal(signalData: Partial<ISignal>) {
     const signal   = await Signal.create(signalData);
+
+    // 0. Cross-signal dedup — correlate before opening a new incident
+    if (mongoose.connection.readyState === 1 && signalData.type) {
+      const existing = await Incident.findOne({
+        'metadata.signalType': signalData.type,
+        status:    { $in: ['analyzing', 'detected', 'active'] },
+        updatedAt: { $gte: new Date(Date.now() - IncidentService.DEDUP_WINDOW_MS) },
+      }).sort({ updatedAt: -1 });
+
+      if (existing) {
+        await Incident.findOneAndUpdate(
+          { incidentId: existing.incidentId },
+          { $addToSet: { signals: signal._id }, $inc: { 'metadata.correlatedSignalCount': 1 } }
+        );
+        if (existing.roomId) {
+          await bandAdapter.post(existing.roomId, {
+            msg_type:                'finding',
+            from_agent:              'correlation-dedup',
+            incident_id:             existing.incidentId,
+            step:                    'cross-signal-dedup',
+            payload: {
+              message: `Correlated new ${signalData.source ?? 'unknown'}/${signalData.type} signal to this incident — duplicate suppressed`,
+              correlatedSignalId: String(signal._id),
+              source: signalData.source,
+            },
+            confidence:              0.9,
+            requires_human_approval: false,
+          }).catch(() => {});
+        }
+        eventBus.emit('incident:updated', { incident: existing });
+        console.log(`[Dedup] Signal ${signal._id} correlated to existing incident ${existing.incidentId}`);
+        return {
+          incident:  existing,
+          deduped:   true,
+          message:   `Signal correlated to existing incident ${existing.incidentId} — no new incident opened`,
+          roomId:    existing.roomId,
+        };
+      }
+    }
+
     const taskId   = uuidv4();
     const incidentId = uuidv4();
     const resourceSnapshot = resourceManager.getStatus();
@@ -154,7 +199,7 @@ export class IncidentService {
       confidence: 0,
       signals:    [signal._id],
       taskId,
-      metadata:   {},
+      metadata:   { signalType: signalData.type },
     });
     eventBus.emit('incident:created', { incident });
 
@@ -284,6 +329,7 @@ export class IncidentService {
         pendingApprovalId:    requiresApproval ? cmdMsg.id : null,
         traceLog,
         metadata: {
+          signalType:           signalData.type,
           commanderSummary:     cmdOutput?.commanderSummary,
           recommendedAction:    cmdOutput?.recommendedAction,
           agentsRecruited:      recruitedAgents,

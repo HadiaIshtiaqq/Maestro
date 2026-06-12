@@ -68,26 +68,26 @@ function AnimatedPolylineRoute({ path, color, animated }: { path: { lat: number;
 const SCENARIOS = [
   {
     id: "disaster",
-    title: "🌪 Disaster Mode — Mass Casualty",
-    description: "Fires a simultaneous building collapse + flash flood + post-collapse fire. Tests multi-crisis resource contention and AI triage under maximum load.",
+    title: "🔥 Cascading Failure — DC Power + DB + Exfil",
+    description: "Fires a datacenter power failure, database replication failure, and suspected data exfiltration simultaneously. Tests multi-incident resource contention and triage under maximum load.",
     type: "CRITICAL",
     actionType: "DISASTER",
     endpoint: "/api/simulate/disaster",
-    parameters: { center: { lat: 24.8607, lng: 67.0011 } },
+    parameters: {},
   },
   {
     id: "world-cup",
-    title: "🏆 World Cup Mode — Crowd Surge",
-    description: "Simulates 80,000-person crowd crush at stadium gates with simultaneous mass-casualty medical emergency. Tests event-mode protocols.",
+    title: "⚡ Peak Event — Traffic Surge + DDoS",
+    description: "Simulates a 14× peak-event traffic surge with a suspected volumetric DDoS riding it. Tests surge protocols and security/SRE coordination.",
     type: "HIGH",
-    actionType: "WORLD_CUP",
+    actionType: "PEAK_EVENT",
     endpoint: "/api/simulate/world-cup",
-    parameters: { venue: { lat: 24.9056, lng: 67.0822 } },
+    parameters: {},
   },
   {
     id: "stress-test",
-    title: "⚡ Stress Test — Concurrent Crises",
-    description: "Fires Flood (Sector A) + Heatwave (Sector B) simultaneously. Demonstrates multi-crisis resource contention and pipeline traces side-by-side.",
+    title: "🛡 Stress Test — Breach + Outage",
+    description: "Fires a credential-stuffing attack and a payments-API outage simultaneously. Demonstrates two Band rooms contending for the shared on-call pool, with reallocation visible in both rooms.",
     type: "HIGH",
     actionType: "STRESS_TEST",
     endpoint: "/api/simulate/stress-test",
@@ -104,27 +104,27 @@ const SCENARIOS = [
   },
   {
     id: "scenario-1",
-    title: "Scenario 1: Flood + Conflicting Report",
-    description: "Urban flood detected via sensors, but social sentiment reports a 'fake' water-main burst. Test agent cross-validation.",
+    title: "Scenario 1: Outage + Conflicting Signals",
+    description: "Monitoring reports a database outage while the vendor status page claims all-clear. Tests agent cross-validation and conflict resolution.",
     type: "CRITICAL",
     actionType: "CROSS_VALIDATION",
     endpoint: "/api/simulate/action",
     parameters: {
-      primaryEvent: "Flood",
-      conflictingSource: "Social Media",
-      discrepancyType: "Water Main vs Rainfall"
+      primaryEvent: "Database Outage",
+      conflictingSource: "Vendor Status Page",
+      discrepancyType: "Internal alerts vs vendor all-clear"
     }
   },
   {
     id: "scenario-2",
-    title: "Scenario 2: Grid Failure Cascading",
-    description: "Power failure in Sector 12 leads to cooling failures in Medical Hub Alpha. Test resource reallocation speed.",
+    title: "Scenario 2: Cascading Infrastructure Failure",
+    description: "Power failure in the primary datacenter cascades to cooling and database clusters. Tests resource reallocation speed across dependent services.",
     type: "HIGH",
     actionType: "RESOURCE_REALLOCATION",
     endpoint: "/api/simulate/action",
     parameters: {
-      primaryEvent: "Power Failure",
-      impactTarget: "Medical Hub Alpha",
+      primaryEvent: "Datacenter Power Failure",
+      impactTarget: "Orders DB Cluster",
       cascadingEffect: "Cooling Failure"
     }
   }

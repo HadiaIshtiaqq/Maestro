@@ -13,7 +13,7 @@ NEXUS is a multi-agent platform that turns a storm of raw operational and securi
 | Human-in-the-loop | Human Commander approves every irreversible action via an approval gate (auto-veto on 5-min timeout) |
 | Audit trail | Every Band message is mirrored to MongoDB before delivery completes; compliance export at `/api/band/audit-trail/:id`; rooms rehydrate from MongoDB on restart |
 | Cross-framework | Validation agent runs **Claude (Anthropic)** when `ANTHROPIC_API_KEY` is set (falls back to Gemini otherwise — the trace records which engine ran); all others Gemini 2.0 Flash |
-| Dynamic recruitment | Commander triage recruits Allocation, DepSim, Mitigation, Runbook after severity is confirmed |
+| Dynamic recruitment | Commander triage recruits the Phase-2 team after severity is confirmed (severity-based policy: SEV-1–3 full team, SEV-4/5 light team) |
 
 ## Architecture
 
@@ -55,7 +55,7 @@ npx tsx scenarios/demo_runner.ts all   # fires 3 demo scenarios
 | `ANTHROPIC_API_KEY` | Validation agent (Claude). Unset → falls back to Gemini, recorded in the trace |
 | `MONGODB_URI` | Incident + audit persistence |
 | `JWT_SECRET` | Mobile-user auth. **Required in production** (server refuses to boot without it); dev uses a random per-boot secret |
-| `OPERATOR_API_KEY` | Protects approve/veto + operator routes (`x-operator-key` header). Unset → open, with a startup warning — set it before hosting publicly |
+| `OPERATOR_API_KEY` | Protects approve/veto + operator routes (`x-operator-key` header). Unset → open, with a startup warning — set it before hosting publicly. Demo-grade shared key (the web UI ships it client-side); production would use per-user auth |
 | `VITE_OPERATOR_KEY` | Same value, exposed to the operator web UI |
 | `VITE_GOOGLE_MAPS_API_KEY` | Dashboard maps (restrict by HTTP referrer) |
 | `BAND_USE_SDK`, `BAND_API_URL`, `BAND_API_KEY` | Switch from the mock Band adapter to the real Band platform (credentials from kickoff) |
@@ -66,7 +66,10 @@ npx tsx scenarios/demo_runner.ts all   # fires 3 demo scenarios
 ## Key API Endpoints
 
 ```
-POST /api/ingest-signal                        Signal intake (zod-validated)
+POST /api/ingest-signal                        Signal intake (zod-validated, rate-limited;
+                                               body {"async": true} → 202 + background pipeline;
+                                               same-type signals within 15 min attach to the
+                                               existing incident instead of opening a new room)
 GET  /api/band/rooms/by-incident/:id           Band room + message trail
 GET  /api/band/audit-trail/:incidentId         Compliance export
 GET  /api/band/approvals/pending               Actions awaiting approval
