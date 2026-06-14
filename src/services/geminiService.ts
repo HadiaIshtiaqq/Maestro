@@ -101,6 +101,33 @@ async function askAiml(prompt: string, jsonResponse: boolean): Promise<any | nul
   }
 }
 
+// ── Featherless engine (OpenAI-compatible) ───────────────────────────────────
+// Independent provider/key used as a cross-provider fallback so an AI/ML API
+// outage or rate-limit can't take the whole system down.
+async function askFeatherless(prompt: string, jsonResponse: boolean): Promise<any | null> {
+  const apiKey = process.env.FEATHERLESS_API_KEY;
+  if (!apiKey) return null;
+  const model = process.env.FEATHERLESS_MODEL || "meta-llama/Meta-Llama-3.1-8B-Instruct";
+  try {
+    const res = await fetch(`${process.env.FEATHERLESS_API_URL || "https://api.featherless.ai/v1"}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body:    JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 4096 }),
+    });
+    if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 150)}`);
+    const data: any = await res.json();
+    const text = (data.choices?.[0]?.message?.content ?? "").trim();
+    if (!text) return null;
+    if (!jsonResponse) return text;
+    const parsed = extractJson(text);
+    parsed.__engine = `Featherless (${model})`;
+    return parsed;
+  } catch (err: any) {
+    console.warn("[Featherless] Fallback failed:", err.message);
+    return null;
+  }
+}
+
 // PRIMARY_LLM=aiml makes AI/ML API the primary engine for every agent (Gemini
 // becomes the fallback). Auto-selected when no Gemini key is configured.
 const PRIMARY_IS_AIML =
@@ -130,13 +157,22 @@ export async function askGemini(prompt: string, jsonResponse: boolean = true): P
       responseCache.set(cacheKey, { result: aiml, expiresAt: Date.now() + CACHE_TTL_MS });
       return aiml;
     }
-    // AI/ML API failed — try Gemini if a key exists, else degrade
+    // AI/ML API failed/rate-limited — fall back to the independent Featherless
+    // provider before degrading, so one provider outage isn't fatal.
+    const feather = await askFeatherless(prompt, jsonResponse);
+    if (feather) {
+      responseCache.set(cacheKey, { result: feather, expiresAt: Date.now() + CACHE_TTL_MS });
+      return feather;
+    }
+    // Last resort — Gemini if a key exists, else degrade
     if (!config.gemini.apiKey) return buildFallback(prompt);
   }
 
   if (Date.now() < geminiCooldownUntil) {
     const aiml = await askAiml(prompt, jsonResponse);
     if (aiml) return aiml;
+    const feather = await askFeatherless(prompt, jsonResponse);
+    if (feather) return feather;
     return buildFallback(prompt);
   }
 
@@ -166,6 +202,11 @@ export async function askGemini(prompt: string, jsonResponse: boolean = true): P
     if (aiml) {
       responseCache.set(cacheKey, { result: aiml, expiresAt: Date.now() + CACHE_TTL_MS });
       return aiml;
+    }
+    const feather = await askFeatherless(prompt, jsonResponse);
+    if (feather) {
+      responseCache.set(cacheKey, { result: feather, expiresAt: Date.now() + CACHE_TTL_MS });
+      return feather;
     }
     return buildFallback(prompt);
   }

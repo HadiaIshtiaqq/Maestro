@@ -7,7 +7,7 @@ import { extractJson } from "./jsonExtract.js";
 // the cross-framework "Claude" agent is genuinely Claude either way, without
 // requiring a separate Anthropic account.
 
-const CLAUDE_MODEL      = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5-20250929";
+const CLAUDE_MODEL      = process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001";
 const ANTHROPIC_MODEL   = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
 
 let _client: Anthropic | null = null;
