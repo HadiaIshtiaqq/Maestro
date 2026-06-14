@@ -520,9 +520,17 @@ export class IncidentService {
           },
         }, PHASE_1);
 
+        // A human submitted this report — it always becomes a visible incident.
+        // If the pipeline degraded, keep it active for manual triage rather than
+        // retracting (only verifyIncident can retract it as a false alarm later).
         if (phase1Trace.status !== 'completed') {
-          await Incident.findOneAndUpdate({ incidentId }, { status: 'retracted' });
-          eventBus.emit('incident:retracted', { incidentId });
+          const inc = await Incident.findOneAndUpdate(
+            { incidentId },
+            { status: 'active', severity: 'medium', sevLevel: 'SEV-3', confidence: 0.5,
+              'metadata.requiresManualTriage': true },
+            { new: true }
+          );
+          eventBus.emit('incident:updated', inc);
           return;
         }
 
@@ -531,14 +539,7 @@ export class IncidentService {
         const sevOutput     = phase1Context['severity-blast-radius'];
         const sevLevel      = sevOutput?.sevLevel ?? 'SEV-3';
         const severity      = sevToLegacy(sevLevel);
-
-        // Confidence check
-        const weightedScore = credOutput?.credibilityAssessment?.weightedScore ?? 0.5;
-        if (weightedScore < 0.4) {
-          await Incident.findOneAndUpdate({ incidentId }, { status: 'retracted' });
-          eventBus.emit('incident:retracted', { incidentId });
-          return;
-        }
+        const weightedScore = credOutput?.credibilityAssessment?.weightedScore ?? 0.6;
 
         const room = await bandAdapter.createRoom(incidentId);
         for (const a of ['intake-normalization','correlation-dedup','validation-credibility','classification','severity-blast-radius','incident-commander','human-commander']) {
@@ -578,12 +579,18 @@ export class IncidentService {
         notifyUsersNearIncident(updatedIncident as any).catch(console.error);
       } catch (err) {
         console.error('[Maestro] Manual report pipeline failed:', err);
-        await Incident.findOneAndUpdate({ incidentId }, { status: 'retracted' }).catch(() => {});
-        eventBus.emit('incident:retracted', { incidentId });
+        // Keep the human's report visible for manual triage — never silently drop it.
+        const inc = await Incident.findOneAndUpdate(
+          { incidentId },
+          { status: 'active', severity: 'medium', sevLevel: 'SEV-3', confidence: 0.5,
+            'metadata.requiresManualTriage': true },
+          { new: true }
+        ).catch(() => null);
+        if (inc) eventBus.emit('incident:updated', inc);
       }
     });
 
-    return { signal, incident, message: 'Report received — verification in progress' };
+    return { signal, incident, message: 'Report received — incident created' };
   }
 
   // ── Queries ───────────────────────────────────────────────────────────────

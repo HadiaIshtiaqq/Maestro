@@ -41,7 +41,7 @@ export default function App() {
     if (inc.severity === "critical" || inc.severity === "high") {
       setActiveAlert({
         id: inc.incidentId,
-        description: `${inc.type?.toUpperCase()} CONFIRMED · ${Math.round((inc.confidence ?? 0) * 100)}% confidence · ${inc.allocatedResources?.ambulance ?? 0} ambulances · ${inc.allocatedResources?.police ?? 0} police dispatched.${inc.detectedLanguage ? ` [${inc.isRomanUrdu ? "Roman Urdu" : inc.detectedLanguage}]` : ""}`,
+        description: `${inc.type?.toUpperCase()} · ${(inc as any).sevLevel ?? inc.severity?.toUpperCase()} · ${Math.round((inc.confidence ?? 0) * 100)}% confidence${(inc as any).blastRadius ? ` · blast radius: ${(inc as any).blastRadius}` : ""}`,
         severity: inc.severity === "critical" ? "CRITICAL" : "HIGH",
       });
     }
@@ -58,15 +58,15 @@ export default function App() {
             <Zap className="w-8 h-8 text-white fill-current" />
           </div>
           <div className="text-5xl font-black tracking-tighter text-white mb-2">Maestro</div>
-          <div className="text-[10px] uppercase tracking-[0.4em] text-white/30 font-bold mb-8">Crisis Intelligence & Response Orchestrator</div>
+          <div className="text-[10px] uppercase tracking-[0.4em] text-white/30 font-bold mb-8">Enterprise Incident Response · Coordinated through Band</div>
           <div className="w-72 h-1 bg-white/5 rounded-full overflow-hidden">
             <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2, ease: "easeInOut" }}
               className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_20px_#06b6d4]" />
           </div>
           <div className="space-y-1 mt-6 text-[9px] uppercase tracking-[0.4em] font-bold opacity-30 text-center text-white">
-            <p>Booting Antigravity Agent Core...</p>
-            <p>Connecting to MongoDB Atlas...</p>
-            <p>Initializing Gemini 2.0 Flash...</p>
+            <p>Booting multi-agent core...</p>
+            <p>Connecting to Band rooms...</p>
+            <p>Initializing 11 agents across 4 frameworks...</p>
           </div>
         </motion.div>
       </div>
@@ -178,7 +178,7 @@ export default function App() {
             />
           ))}
         </div>
-        <span className="font-mono text-[8px] uppercase tracking-[0.4em] font-black text-cyan-400">Gemini 2.0</span>
+        <span className="font-mono text-[8px] uppercase tracking-[0.4em] font-black text-cyan-400">Band · Multi-Agent</span>
       </div>
     </div>
   );

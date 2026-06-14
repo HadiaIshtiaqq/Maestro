@@ -133,7 +133,7 @@ export default function TopBar({
         <motion.div key={incidentCount} initial={{ scale: 0.9 }} animate={{ scale: 1 }}
           className="text-center leading-none">
           <div className="text-lg font-black text-white leading-none">{incidentCount}</div>
-          <div className="text-[8px] font-black uppercase tracking-widest text-white/30 mt-0.5">Active Calls</div>
+          <div className="text-[8px] font-black uppercase tracking-widest text-white/30 mt-0.5">Active Incidents</div>
         </motion.div>
 
         <div className="w-px h-8 bg-white/8" />
@@ -209,7 +209,7 @@ export default function TopBar({
                     <div className="flex gap-1.5 flex-wrap">
                       {Object.entries(pool).map(([k, v]) => {
                         const used = v - (avail[k] ?? 0);
-                        const emoji = k === "ambulance" ? "🚑" : k === "police" ? "🚔" : k === "fire" ? "🚒" : "🛸";
+                        const emoji = k === "sre" ? "🛠" : k === "seceng" ? "🔒" : k === "dataeng" ? "🗄" : k === "ic" ? "🎖" : k === "compliance" ? "📋" : "•";
                         return (
                           <div key={k} className="text-[9px] bg-white/5 border border-white/10 rounded-lg px-2 py-1">
                             {emoji} {used}/{v}

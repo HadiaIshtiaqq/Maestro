@@ -69,15 +69,15 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const signalTypes = [
-  { id: "social", icon: Rss, label: "Social Media" },
-  { id: "weather", icon: Cloud, label: "Weather" },
-  { id: "traffic", icon: Car, label: "Traffic" },
+  { id: "social", icon: Rss, label: "SIEM" },
+  { id: "weather", icon: Cloud, label: "Monitoring" },
+  { id: "traffic", icon: Car, label: "Ticketing" },
   { id: "ai", icon: Bot, label: "AI Assistant" },
 ];
 
 const crisisTags = [
-  { id: "flood_en", label: "Flood (EN)", icon: "🌊" },
-  { id: "flood_ur", label: "Flood (UR)", icon: "🌊" },
+  { id: "flood_en", label: "Security", icon: "🌊" },
+  { id: "flood_ur", label: "Outage", icon: "🌊" },
   { id: "heatwave", label: "Heatwave", icon: "🔥" },
   { id: "accident", label: "Accident", icon: "💥" },
   { id: "infra_fail", label: "Infra Fail", icon: "🏗️" },
@@ -888,7 +888,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
           </div>
           <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-black tracking-tight text-[#00e5ff] leading-none truncate">Maestro</h1>
-            <p className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] font-bold opacity-50 mt-1 truncate">Crisis Intelligence & Response Network</p>
+            <p className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] font-bold opacity-50 mt-1 truncate">Enterprise Incident Response Network</p>
           </div>
         </div>
 
@@ -1035,9 +1035,9 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
           {/* Active dispatches */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "Ambulances", count: liveIncidents.reduce((s, i) => s + (i.allocatedResources?.ambulance ?? 0), 0), icon: "🚑", color: "#ef4444" },
-              { label: "Police Units", count: liveIncidents.reduce((s, i) => s + (i.allocatedResources?.police ?? 0), 0), icon: "🚔", color: "#3b82f6" },
-              { label: "Fire Teams", count: liveIncidents.reduce((s, i) => s + (i.allocatedResources?.fire ?? 0), 0), icon: "🚒", color: "#f97316" },
+              { label: "SREs", count: liveIncidents.reduce((s, i) => s + (i.allocatedResources?.sre ?? 0), 0), icon: "🛠", color: "#ef4444" },
+              { label: "SecEng", count: liveIncidents.reduce((s, i) => s + (i.allocatedResources?.seceng ?? 0), 0), icon: "🔒", color: "#3b82f6" },
+              { label: "Data Eng", count: liveIncidents.reduce((s, i) => s + (i.allocatedResources?.dataeng ?? 0), 0), icon: "🗄", color: "#f97316" },
               { label: "Drones", count: liveIncidents.reduce((s, i) => s + (i.allocatedResources?.drone ?? 0), 0), icon: "🛸", color: "#a855f7" },
             ].map(d => (
               <div key={d.label} className="bg-[#14181f] border border-white/10 rounded-2xl p-5 flex items-center gap-4">
@@ -1065,7 +1065,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full border" style={{ borderColor: "#22c55e44", color: "#22c55e", background: "#22c55e15" }}>
-                    {inc.allocatedResources?.ambulance ?? 0}🚑 {inc.allocatedResources?.police ?? 0}🚔
+                    {inc.allocatedResources?.sre ?? 0}🛠 {inc.allocatedResources?.seceng ?? 0}🔒
                   </span>
                 </div>
               </div>
@@ -1160,7 +1160,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
           <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex flex-col md:flex-row items-center justify-between z-10 pointer-events-none gap-4">
             <div className="flex items-center gap-4 pointer-events-auto bg-[#14181f]/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 shadow-xl w-full md:w-auto overflow-x-auto no-scrollbar">
               <MapIcon className="w-5 h-5 md:w-6 md:h-6 text-[#00e5ff] shrink-0" />
-              <h2 className="text-lg md:text-xl font-black tracking-tight text-white uppercase whitespace-nowrap">Crisis Map</h2>
+              <h2 className="text-lg md:text-xl font-black tracking-tight text-white uppercase whitespace-nowrap">Incident Map</h2>
               <div className="h-6 w-px bg-white/10 mx-2 shrink-0"></div>
               <div className="flex items-center gap-1">
                 <button 

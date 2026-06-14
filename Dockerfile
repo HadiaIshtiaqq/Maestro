@@ -6,6 +6,11 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps --ignore-scripts
 
 COPY . .
+# VITE_* are baked into the frontend bundle at build time (client-side keys).
+ARG VITE_GOOGLE_MAPS_API_KEY=""
+ARG VITE_OPERATOR_KEY=""
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
+ENV VITE_OPERATOR_KEY=$VITE_OPERATOR_KEY
 # Build BOTH the web UI (vite) and the server (esbuild) so the deployed
 # service serves the operator dashboard, not just the API.
 RUN npm run build

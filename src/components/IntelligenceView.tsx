@@ -508,12 +508,12 @@ export default function IntelligenceView({
           </div>
 
           <div className="flex-1 flex flex-col justify-center gap-3 min-h-0">
-            {(["ambulance", "police", "fire", "drone"] as const).map(k => {
+            {(["sre", "seceng", "dataeng", "ic", "compliance"] as const).map(k => {
               const total = pool[k]  ?? 0;
               const free  = avail[k] ?? 0;
               const dep   = Math.max(0, total - free);
               const pct   = total > 0 ? (dep / total) * 100 : 0;
-              const emoji = k === "ambulance" ? "🚑" : k === "police" ? "🚔" : k === "fire" ? "🚒" : "🛸";
+              const emoji = k === "sre" ? "🛠" : k === "seceng" ? "🔒" : k === "dataeng" ? "🗄" : k === "ic" ? "🎖" : "📋";
               const color = pct > 80 ? "#ef4444" : pct > 50 ? "#f97316" : "#00e5ff";
               return (
                 <div key={k}>
