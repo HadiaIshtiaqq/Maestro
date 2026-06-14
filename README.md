@@ -90,7 +90,7 @@ npx tsx scenarios/demo_runner.ts concurrent      # two incidents, shared SRE poo
 The Band integration is isolated behind the `IBandAdapter` interface in [src/band/adapter.ts](src/band/adapter.ts):
 
 - **`MockBandAdapter`** (default) — in-process rooms + authority enforcement + MongoDB mirror. Lets the full workflow run before platform credentials arrive.
-- **`BandSdkAdapter`** (`BAND_USE_SDK=true`) — extends the mock with HTTP calls to the Band platform API for room creation, joins, message posting, recruitment, and room close. Endpoint paths are to be confirmed against the Band Agent API reference at kickoff.
+- **`BandSdkAdapter`** (`BAND_USE_SDK=true`) — posts into the **real Band Agent API** (`https://app.band.ai/api/v1/agent`, `X-API-Key` auth): `POST /chats` opens a chat per incident, `POST /chats/{id}/messages` posts each finding (structured NEXUS envelope rendered into Band's text+@mention message model), `GET /chats/{id}/messages` reads the trail. The local Mock store remains the source of truth for authority enforcement and the audit mirror; Band is the live agent-to-agent coordination backbone on top. Requires an agent `X-API-Key` registered via Band's Human API.
 
 Agent logic, governance rules, and the UI depend only on `IBandAdapter`, so the swap is contained to this one file.
 

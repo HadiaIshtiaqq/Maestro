@@ -1,5 +1,6 @@
 import { askGemini } from "../services/geminiService";
 import { askClaude } from "../services/claudeService";
+import { extractJson } from "../services/jsonExtract";
 import mongoose, { Schema, Document } from "mongoose";
 
 // ─── Persisted Trace Model ────────────────────────────────────────────────────
@@ -186,8 +187,7 @@ Respond ONLY with a valid JSON object. No markdown fences. No commentary.
         if (!res.ok) throw new Error(`${this.cfg.label} ${res.status}: ${(await res.text()).slice(0, 200)}`);
         const data: any = await res.json();
         const text = (data.choices?.[0]?.message?.content ?? "").trim();
-        const clean = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-        const parsed = JSON.parse(clean);
+        const parsed = extractJson(text);
         const engine = `${this.cfg.label} (${model})`;
         console.log(`[${this.cfg.label}] → ${model} OK for ${this.id}`);
         return {

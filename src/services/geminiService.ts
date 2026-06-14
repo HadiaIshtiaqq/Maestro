@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../config/index.js";
+import { extractJson } from "./jsonExtract.js";
 
 const genAI = new GoogleGenerativeAI(config.gemini.apiKey || "");
 
@@ -91,8 +92,7 @@ async function askAiml(prompt: string, jsonResponse: boolean): Promise<any | nul
     const text = (data.choices?.[0]?.message?.content ?? "").trim();
     if (!text) return null;
     if (!jsonResponse) return text;
-    const clean = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-    const parsed = JSON.parse(clean);
+    const parsed = extractJson(text);
     parsed.__engine = `AI/ML API (${model})`;
     return parsed;
   } catch (err: any) {

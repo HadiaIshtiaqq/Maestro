@@ -45,6 +45,8 @@ export interface IAgentMessage extends Document {
   confidence:              number;
   requires_human_approval: boolean;
   engine?:                 string;
+  prev_hash?:              string;
+  hash?:                   string;
   ts:                      Date;
 }
 
@@ -59,6 +61,8 @@ const AgentMessageSchema = new Schema<IAgentMessage>({
   confidence:              { type: Number, default: 0 },
   requires_human_approval: { type: Boolean, default: false },
   engine:                  { type: String },
+  prev_hash:               { type: String },
+  hash:                    { type: String },
   ts:                      { type: Date, default: Date.now },
 }, { timestamps: false });
 

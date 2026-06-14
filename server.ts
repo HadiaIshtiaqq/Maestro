@@ -105,7 +105,7 @@ async function startServer() {
           incident_id: m.incident_id, room_id: m.room_id, step: m.step,
           payload: m.payload, confidence: m.confidence,
           requires_human_approval: m.requires_human_approval,
-          engine: m.engine,
+          engine: m.engine, prev_hash: m.prev_hash, hash: m.hash,
           ts: new Date(m.ts ?? Date.now()).toISOString(),
         })),
       );

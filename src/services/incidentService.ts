@@ -26,6 +26,8 @@ bandAdapter.setDbMirror(async (msg: BandMessage) => {
       confidence:              msg.confidence,
       requires_human_approval: msg.requires_human_approval,
       engine:                  msg.engine,
+      prev_hash:               msg.prev_hash,
+      hash:                    msg.hash,
       ts:                      new Date(msg.ts),
     }).catch(() => {/* ignore duplicate key errors */});
   }

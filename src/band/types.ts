@@ -22,6 +22,8 @@ export interface BandMessage {
   requires_human_approval: boolean;
   engine?: string;   // which LLM framework produced this message (cross-framework visibility)
   ts: string;
+  prev_hash?: string;  // hash of the previous message in this room (tamper-evident chain)
+  hash?: string;       // SHA-256 of this message's content + prev_hash
 }
 
 export interface BandRoom {

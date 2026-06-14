@@ -876,10 +876,19 @@ router.get("/band/audit-trail/:incidentId", async (req, res) => {
     const messages  = await AgentMessage.find({ incident_id: incidentId }).sort({ ts: 1 }).lean();
     const approvals = await Approval.find({ incident_id: incidentId }).sort({ ts: 1 }).lean();
 
+    const { verifyChain } = await import("../band/adapter");
+    const chain = verifyChain(messages as any);
+
     res.json({
       incidentId,
       roomId:      incident?.roomId ?? null,
       exportedAt:  new Date().toISOString(),
+      integrity: {
+        tamperEvident: true,
+        algorithm:     "SHA-256 hash chain",
+        verified:      chain.ok,
+        ...(chain.ok ? {} : { brokenAtIndex: chain.brokenAt }),
+      },
       auditTrail: {
         messages,
         approvals,

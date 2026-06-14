@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { MockBandAdapter } from "../src/band/adapter";
+import { MockBandAdapter, verifyChain } from "../src/band/adapter";
 import { BandMessage } from "../src/band/types";
 
 function findingFrom(agent: string, incidentId = "inc-1") {
@@ -54,6 +54,25 @@ describe("MockBandAdapter — rooms and messages", () => {
 
     expect(seen).toHaveLength(1);
     expect(seen[0].from_agent).toBe("a");
+  });
+
+  it("builds a tamper-evident hash chain that detects edits", async () => {
+    const room = await band.createRoom("inc-1");
+    await band.post(room.room_id, findingFrom("intake-normalization"));
+    await band.post(room.room_id, findingFrom("classification"));
+    await band.post(room.room_id, findingFrom("severity-blast-radius"));
+
+    const messages = await band.getMessages(room.room_id);
+    // Genesis chains from GENESIS; every message links to the previous hash.
+    expect(messages[0].prev_hash).toBe("GENESIS");
+    expect(messages[1].prev_hash).toBe(messages[0].hash);
+    expect(verifyChain(messages).ok).toBe(true);
+
+    // Tamper with a stored payload — the chain must now report a break.
+    messages[1].payload = { ok: false, tampered: true };
+    const result = verifyChain(messages);
+    expect(result.ok).toBe(false);
+    expect(result.brokenAt).toBe(1);
   });
 
   it("hydrate() restores rooms and deduplicates messages", async () => {

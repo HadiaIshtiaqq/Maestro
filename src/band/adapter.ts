@@ -1,9 +1,35 @@
 import { EventEmitter } from "events";
+import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import {
   BandMessage, BandRoom, IBandAdapter,
   MsgType, AUTHORITY_RULES,
 } from "./types";
+
+// Tamper-evident hash chain: each message's hash binds its content to the
+// previous message's hash, so any after-the-fact edit/insert/delete breaks the
+// chain. Genesis (first message in a room) chains from "GENESIS".
+export function hashMessage(msg: BandMessage, prevHash: string): string {
+  const canonical = JSON.stringify({
+    msg_type: msg.msg_type, from_agent: msg.from_agent, incident_id: msg.incident_id,
+    room_id: msg.room_id, step: msg.step, payload: msg.payload,
+    confidence: msg.confidence, requires_human_approval: msg.requires_human_approval,
+    engine: msg.engine ?? null, ts: msg.ts, prev_hash: prevHash,
+  });
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+// Verify a room's audit chain. Returns the first break, or null if intact.
+export function verifyChain(messages: BandMessage[]): { ok: boolean; brokenAt?: number } {
+  let prev = "GENESIS";
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.prev_hash !== prev) return { ok: false, brokenAt: i };
+    if (m.hash !== hashMessage(m, prev)) return { ok: false, brokenAt: i };
+    prev = m.hash;
+  }
+  return { ok: true };
+}
 
 // ─── Mock Band Adapter ────────────────────────────────────────────────────────
 // Simulates the Band SDK until real credentials arrive at kickoff.
@@ -69,15 +95,20 @@ export class MockBandAdapter extends EventEmitter implements IBandAdapter {
       );
     }
 
+    const log = this.messages.get(roomId)!;
+    const prevHash = log.length ? (log[log.length - 1].hash ?? "GENESIS") : "GENESIS";
+
     const msg: BandMessage = {
       ...message,
       id:      uuidv4(),
       room_id: roomId,
       ts:      new Date().toISOString(),
+      prev_hash: prevHash,
     };
+    msg.hash = hashMessage(msg, prevHash);
 
     // Store in memory
-    this.messages.get(roomId)!.push(msg);
+    log.push(msg);
 
     // Mirror to MongoDB — awaited so the audit record is durable before the
     // message is considered posted. A mirror failure is logged loudly but does
@@ -167,63 +198,95 @@ export class MockBandAdapter extends EventEmitter implements IBandAdapter {
 }
 
 // ─── Band SDK Adapter (real platform) ────────────────────────────────────────
-// Skeleton for the real Band platform integration. It keeps the Mock's local
-// room/message bookkeeping (so the operator UI and audit mirror keep working)
-// and additionally pushes every operation to the Band API.
+// Real Band Agent API integration, built against the documented contract:
+//   Base URL : https://app.band.ai/api/v1/agent        (BAND_API_URL override)
+//   Auth     : X-API-Key: <agent api key>              (BAND_API_KEY)
+//   Create   : POST /chats            { chat: { title, task_id } }
+//   Post msg : POST /chats/{id}/messages { message: { content, mentions[] } }
+//   List msg : GET  /chats/{id}/messages -> { data: [...], metadata }
 //
-// To activate: set BAND_API_URL + BAND_API_KEY (from kickoff onboarding) and
-// BAND_USE_SDK=true. Endpoint paths below follow the Band Agent API docs and
-// must be confirmed against the real API reference once credentials arrive.
+// Band's message model is text + @mentions; NEXUS's structured BandMessage
+// envelopes are serialized into the message content (with a compact header so
+// findings stay human-readable in the Band UI) and the structured payload is
+// preserved locally for the operator view + audit mirror. The local Mock store
+// remains the source of truth for governance (authority rules) and audit; Band
+// is the live agent-to-agent coordination backbone on top.
+//
+// Activate: BAND_USE_SDK=true + BAND_API_KEY=<agent key from Band Human API>.
+// The agent key is issued when each agent is registered via Band's Human API —
+// a subscription_id is NOT an agent key.
 
 export class BandSdkAdapter extends MockBandAdapter {
-  private apiUrl = process.env.BAND_API_URL ?? "";
-  private apiKey = process.env.BAND_API_KEY ?? "";
+  private apiUrl  = (process.env.BAND_API_URL ?? "https://app.band.ai/api/v1/agent").replace(/\/$/, "");
+  private apiKey  = process.env.BAND_API_KEY ?? "";
+  // NEXUS room_id (uuid) → Band chat id
+  private chatIds = new Map<string, string>();
 
-  private async api(path: string, body: any): Promise<any> {
-    if (!this.apiUrl || !this.apiKey) {
-      throw new Error("BAND_API_URL / BAND_API_KEY not configured");
-    }
+  private async api(method: string, path: string, body?: any): Promise<any> {
+    if (!this.apiKey) throw new Error("BAND_API_KEY not configured");
     const res = await fetch(`${this.apiUrl}${path}`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
-      body:    JSON.stringify(body),
+      method,
+      headers: { "X-API-Key": this.apiKey, "Content-Type": "application/json" },
+      ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    if (!res.ok) throw new Error(`Band API ${path} → ${res.status}: ${await res.text()}`);
-    return res.json();
+    if (!res.ok) throw new Error(`Band API ${method} ${path} → ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return res.status === 204 ? null : res.json();
+  }
+
+  // Render a structured NEXUS envelope into a readable Band message body.
+  private renderContent(message: Omit<BandMessage, "id" | "room_id" | "ts">): string {
+    const tag = message.msg_type.toUpperCase();
+    const eng = message.engine ? ` · ${message.engine}` : "";
+    const head = `[${tag}] ${message.from_agent}${eng}`;
+    const summary =
+      message.payload?.message ??
+      message.payload?.commanderSummary ??
+      message.payload?.recommendedAction?.action ??
+      `${message.step} finding`;
+    // Compact structured payload appended so nothing is lost on the Band side.
+    return `${head}\n${summary}\n\n\`\`\`json\n${JSON.stringify(message.payload ?? {}, null, 0).slice(0, 3500)}\n\`\`\``;
   }
 
   override async createRoom(incidentId: string): Promise<BandRoom> {
     const room = await super.createRoom(incidentId);
-    await this.api("/rooms", { external_id: incidentId, name: `incident-${incidentId}` });
+    try {
+      const chat = await this.api("POST", "/chats", {
+        chat: { title: `NEXUS incident ${incidentId.slice(0, 8)}`, task_id: incidentId },
+      });
+      if (chat?.id) this.chatIds.set(room.room_id, chat.id);
+    } catch (e: any) {
+      console.warn(`[Band] createRoom remote failed (local room still active): ${e.message}`);
+    }
     return room;
-  }
-
-  override async joinRoom(roomId: string, agentId: string): Promise<void> {
-    await super.joinRoom(roomId, agentId);
-    await this.api(`/rooms/${roomId}/join`, { agent_id: agentId });
   }
 
   override async post(
     roomId: string,
     message: Omit<BandMessage, "id" | "room_id" | "ts">
   ): Promise<BandMessage> {
+    // Local store first — preserves authority enforcement, audit mirror, UI.
     const msg = await super.post(roomId, message);
-    await this.api(`/rooms/${roomId}/messages`, msg);
+    const chatId = this.chatIds.get(roomId);
+    if (chatId) {
+      this.api("POST", `/chats/${chatId}/messages`, {
+        message: {
+          content: this.renderContent(message),
+          // Band requires ≥1 mention for routing; @commander keeps the human
+          // commander in the loop on every posted finding.
+          mentions: [{ handle: "commander", name: "Incident Commander" }],
+        },
+      }).catch(e => console.warn(`[Band] post remote failed for ${roomId}: ${e.message}`));
+    }
     return msg;
-  }
-
-  override async recruit(roomId: string, agentRole: string): Promise<void> {
-    await super.recruit(roomId, agentRole);
-    await this.api(`/rooms/${roomId}/recruit`, { agent_role: agentRole });
   }
 
   override async closeRoom(roomId: string): Promise<void> {
     await super.closeRoom(roomId);
-    await this.api(`/rooms/${roomId}/close`, {});
+    this.chatIds.delete(roomId);
   }
 }
 
 // Singleton — all agents share one adapter instance per process.
-// BAND_USE_SDK=true switches to the real platform adapter (post-kickoff).
+// BAND_USE_SDK=true switches to the real Band platform adapter.
 export const bandAdapter: MockBandAdapter =
   process.env.BAND_USE_SDK === "true" ? new BandSdkAdapter() : new MockBandAdapter();
