@@ -37,7 +37,7 @@ router.use("/admin", operatorAuth);
  * Clears all incidents/signals/Band rooms/messages/approvals so a demo
  * recording starts from a clean board. Operator-key gated.
  */
-router.post("/admin/reset-demo", async (_req, res) => {
+router.post("/admin/reset-demo", async (req, res) => {
   try {
     const { Incident, Signal, AgentMessage, BandRoom: BandRoomModel, Approval, DispatchLog } = await import("../models/index");
     const [inc, sig, msg, rooms, appr, disp] = await Promise.all([
@@ -50,6 +50,10 @@ router.post("/admin/reset-demo", async (_req, res) => {
     ]);
     (bandAdapter as any).clearLocal?.();
     resourceManager.getStatus().activeIncidents.forEach((a: any) => resourceManager.release(a.incidentId));
+    // Reseed fresh enterprise demo incidents unless ?reseed=false
+    if (req.query.reseed !== "false") {
+      await seedDemoIncidents();
+    }
     eventBus.emit("resources:updated", resourceManager.getStatus());
     res.json({
       ok: true,
@@ -57,6 +61,7 @@ router.post("/admin/reset-demo", async (_req, res) => {
         incidents: inc.deletedCount, signals: sig.deletedCount, bandMessages: msg.deletedCount,
         rooms: rooms.deletedCount, approvals: appr.deletedCount, dispatches: disp.deletedCount,
       },
+      reseeded: req.query.reseed !== "false",
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
