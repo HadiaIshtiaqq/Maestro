@@ -338,9 +338,9 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [telemetry, setTelemetry] = useState<{ id: string; assetName: string; event: string; time: string; type: 'status' | 'movement' | 'alert' }[]>([]);
   const [activeSignals, setActiveSignals] = useState<any[]>([
-    { id: 'sig-1', type: 'social', source: '@CrisisWatch', text: 'Bridge collapse reported near Sector 7. Emergency services needed.', time: '2m ago', priority: 'high' },
-    { id: 'sig-2', type: 'weather', source: 'MET-OS', text: 'Peak temperatures reaching 50°C. Power grid under heavy load.', time: '5m ago', priority: 'medium' },
-    { id: 'sig-3', type: 'traffic', source: 'City-Live', text: 'Major route blockages on M-9 due to spontaneous protests.', time: '12m ago', priority: 'low' },
+    { id: 'sig-1', type: 'social', source: 'SIEM', text: 'Spike in failed logins (9.8k/5min) from 412 IPs against auth-gateway.', time: '2m ago', priority: 'high' },
+    { id: 'sig-2', type: 'weather', source: 'Monitoring', text: 'payments-api error rate 84%, p99 latency 30s after canary v2.14.0.', time: '5m ago', priority: 'medium' },
+    { id: 'sig-3', type: 'traffic', source: 'PagerDuty', text: 'orders-db replica lag 1900s past failover threshold.', time: '12m ago', priority: 'low' },
   ]);
   const [historyTimeRange, setHistoryTimeRange] = useState(15); // in minutes
   const [historyPlaybackPercent, setHistoryPlaybackPercent] = useState(100); // 100 is current time
@@ -926,13 +926,13 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
         <div className="h-4 w-px bg-white/10 shrink-0"></div>
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#ff6b00] shadow-[0_0_8px_#ff6b00]"></div>
-          <span className="text-[10px] md:text-xs font-bold text-white/60">Emergency</span>
+          <span className="text-[10px] md:text-xs font-bold text-white/60">High</span>
           <span className="text-base md:text-lg font-black text-[#ff6b00]">{stats.emergency}</span>
         </div>
         <div className="h-4 w-px bg-white/10 shrink-0"></div>
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#ffd600] shadow-[0_0_8px_#ffd600]"></div>
-          <span className="text-[10px] md:text-xs font-bold text-white/60">Non-Emergency</span>
+          <span className="text-[10px] md:text-xs font-bold text-white/60">Medium/Low</span>
           <span className="text-base md:text-lg font-black text-[#ffd600]">{stats.nonEmergency}</span>
         </div>
         <div className="h-4 w-px bg-white/10 shrink-0"></div>
@@ -2490,7 +2490,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
                       <>
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">
-                          Live {activeSignalTab === "weather" ? "Open-Meteo" : activeSignalTab === "traffic" ? "Gemini Traffic AI" : "Gemini Social Feed"}
+                          Live {activeSignalTab === "weather" ? "Monitoring Stream" : activeSignalTab === "traffic" ? "Ticketing Feed" : "SIEM Stream"}
                         </span>
                       </>
                     ) : null}

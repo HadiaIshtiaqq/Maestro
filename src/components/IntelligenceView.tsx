@@ -172,10 +172,10 @@ export default function IntelligenceView({
   const mapZoom = located.length <= 1 ? 4 : 2;
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 h-full animate-in fade-in duration-500 overflow-y-auto lg:overflow-hidden pb-20 lg:pb-0">
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 animate-in fade-in duration-500 pb-6">
 
       {/* ── MAP ───────────────────────────────────────────────────────────────── */}
-      <section className="col-span-12 lg:col-span-9 min-h-[460px] lg:min-h-0 relative bg-[#0a0c10] border border-white/5 rounded-[32px] overflow-hidden shadow-2xl">
+      <section className="col-span-12 lg:col-span-9 min-h-[460px] lg:h-[calc(100vh-140px)] relative bg-[#0a0c10] border border-white/5 rounded-[32px] overflow-hidden shadow-2xl">
 
         {GMAPS_KEY ? (
           <APIProvider apiKey={GMAPS_KEY}>
@@ -502,10 +502,10 @@ export default function IntelligenceView({
       </section>
 
       {/* ── SIDEBAR ──────────────────────────────────────────────────────────── */}
-      <aside className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-auto lg:h-full overflow-y-auto lg:overflow-hidden">
+      <aside className="col-span-12 lg:col-span-3 flex flex-col gap-4 lg:h-[calc(100vh-140px)] lg:overflow-y-auto pr-1">
 
         {/* Resource Flow */}
-        <div className="flex-1 bg-[#0f1117] border border-white/5 rounded-[32px] p-5 flex flex-col shadow-inner min-h-[280px] lg:min-h-0">
+        <div className="bg-[#0f1117] border border-white/5 rounded-[32px] p-5 flex flex-col shadow-inner shrink-0">
           <div className="flex justify-between items-center mb-4 shrink-0">
             <div>
               <h2 className="text-sm font-black text-white uppercase tracking-tight">Resource Flow</h2>
@@ -516,7 +516,7 @@ export default function IntelligenceView({
             <Network className="w-4 h-4 text-[#00e5ff]/40 shrink-0" />
           </div>
 
-          <div className="flex-1 flex flex-col justify-center gap-3 min-h-0">
+          <div className="flex flex-col gap-3">
             {(["sre", "seceng", "dataeng", "ic", "compliance"] as const).map(k => {
               const total = pool[k]  ?? 0;
               const free  = avail[k] ?? 0;

@@ -789,66 +789,39 @@ router.get("/autonomous-actions", async (req, res) => {
 router.get("/data/live-context", async (req, res) => {
   const type = (req.query.type as string) ?? "";
 
-  if (type === "weather") {
+  // The three tabs map to enterprise signal sources: monitoring, ticketing, SIEM.
+  if (type === "weather") { // Monitoring stream
+    const prompt = `You are an observability/monitoring platform. Generate a concise 4-line real-time health snapshot across services: payments-api, checkout, orders-db, auth-gateway, search-api, edge/CDN.
+For each, give one metric (error rate, p99 latency, replication lag, saturation, or RPS) with a value and whether it's within or breaching SLO. Be specific and realistic. No markdown.`;
     try {
-      // Open-Meteo — free, no key, Karachi coordinates
-      const url = "https://api.open-meteo.com/v1/forecast?latitude=24.8607&longitude=67.0011&current=temperature_2m,apparent_temperature,precipitation,weathercode,windspeed_10m,winddirection_10m,relativehumidity_2m,uv_index&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia%2FKarachi&forecast_days=1";
-      const data: any = await fetch(url).then(r => r.json());
-      const c = data.current ?? {};
-      const d = data.daily ?? {};
-      const WMO: Record<number, string> = {
-        0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",
-        45:"Foggy",48:"Icy fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",
-        61:"Light rain",63:"Rain",65:"Heavy rain",71:"Light snow",73:"Snow",75:"Heavy snow",
-        80:"Light showers",81:"Showers",82:"Heavy showers",95:"Thunderstorm",96:"Thunderstorm+hail",99:"Thunderstorm+heavy hail",
-      };
-      const condition = WMO[c.weathercode] ?? `Code ${c.weathercode}`;
-      const lines = [
-        `🌤 Karachi Weather — Live (Open-Meteo)`,
-        `Condition: ${condition}`,
-        `Temperature: ${c.temperature_2m}°C (Feels like ${c.apparent_temperature}°C)`,
-        `Humidity: ${c.relativehumidity_2m}%  ·  Wind: ${c.windspeed_10m} km/h`,
-        `Precipitation: ${c.precipitation} mm  ·  UV Index: ${c.uv_index ?? "N/A"}`,
-        d.temperature_2m_max?.[0] != null
-          ? `Today: High ${d.temperature_2m_max[0]}°C / Low ${d.temperature_2m_min[0]}°C · Rain ${d.precipitation_sum[0]} mm`
-          : "",
-      ].filter(Boolean).join("\n");
-      return res.json({ summary: lines });
-    } catch (e: any) {
-      return res.json({ summary: "Weather data unavailable — enter conditions manually.\n(Open-Meteo API error)" });
+      const text = await askGemini(prompt, false);
+      return res.json({ simulated: true, summary: `📈 [SIMULATED — demo telemetry] Monitoring Stream\n\n${text}` });
+    } catch {
+      return res.json({ summary: "Monitoring stream unavailable — enter signal manually." });
     }
   }
 
-  if (type === "traffic") {
-    const now   = new Date();
-    const pktH  = (now.getUTCHours() + 5) % 24;
-    const period = pktH >= 7 && pktH <= 10 ? "morning rush hour (7–10 AM PKT)"
-                 : pktH >= 17 && pktH <= 20 ? "evening rush hour (5–8 PM PKT)"
-                 : `off-peak hours (${pktH}:00 PKT)`;
-    const prompt = `You are a Karachi traffic intelligence system. Generate a 4-sentence real-time traffic signal report for Karachi, Pakistan during ${period}.
-Cover: Shahrah-e-Faisal, University Road, M-9 Motorway, Clifton Bridge, Numaish/Saddar interchange.
-For each road mention: congestion level (clear/slow/congested), estimated delay, and any incidents (accidents, protests, construction).
-End with a recommended alternate route. Be specific, operational, realistic. No markdown.`;
+  if (type === "traffic") { // Ticketing feed
+    const prompt = `You are an incident ticketing/on-call system (PagerDuty/Jira style). Generate 4 recent tickets/alerts as short lines.
+Format each as: [SEV-n] <service> — <one-line symptom> (source: monitoring|siem|customer)
+Cover a mix: latency, error spike, failed deploy, cert expiry, disk pressure, suspicious auth. Realistic service names. No markdown.`;
     try {
       const text = await askGemini(prompt, false);
-      return res.json({ simulated: true, summary: `🚦 [SIMULATED — AI-generated demo data] Traffic Intelligence — ${period}\n\n${text}` });
+      return res.json({ simulated: true, summary: `🎫 [SIMULATED — demo tickets] Ticketing Feed\n\n${text}` });
     } catch {
-      return res.json({ summary: "Traffic intelligence unavailable — enter conditions manually." });
+      return res.json({ summary: "Ticketing feed unavailable — enter signal manually." });
     }
   }
 
-  if (type === "social") {
-    const prompt = `You are a social media monitoring agent for Karachi crisis detection. Generate 5 realistic public posts from different accounts that would appear on X/Twitter right now.
-Mix: flooding, heatwave, road accident, power outage, waterlogging — pick 2-3 relevant for current season (late spring/early summer Karachi).
-Format each post as:
-@handle: [post text] #hashtag1 #hashtag2
-Use realistic Karachi handles and locations (Clifton, Gulshan, PECHS, Korangi, Saddar, Lyari, Malir).
-Some posts in Roman Urdu, some in English. Keep each post under 280 characters.`;
+  if (type === "social") { // SIEM stream
+    const prompt = `You are a SIEM (security information and event management) platform. Generate 5 recent security signals as short alert lines.
+Format each as: [severity] <rule/detection> — <source IP/ASN or host> — <one-line detail>
+Mix: credential stuffing, anomalous egress/exfil, privilege escalation, DDoS/volumetric, malware beacon, impossible-travel login. Realistic and specific. No markdown.`;
     try {
       const text = await askGemini(prompt, false);
-      return res.json({ simulated: true, summary: `⚠️ [SIMULATED FEED — AI-generated demo posts, not real social media]\n\n${text}` });
+      return res.json({ simulated: true, summary: `🛡 [SIMULATED — demo detections] SIEM Stream\n\n${text}` });
     } catch {
-      return res.json({ summary: "Social signal feed unavailable — enter signal manually." });
+      return res.json({ summary: "SIEM stream unavailable — enter signal manually." });
     }
   }
 
