@@ -6,7 +6,9 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps --ignore-scripts
 
 COPY . .
-RUN npm run build:server
+# Build BOTH the web UI (vite) and the server (esbuild) so the deployed
+# service serves the operator dashboard, not just the API.
+RUN npm run build
 
 # Cloud Run injects PORT at runtime (default 8080)
 ENV NODE_ENV=production
