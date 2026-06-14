@@ -101,12 +101,28 @@ async function askAimlFallback(prompt: string, jsonResponse: boolean): Promise<a
   }
 }
 
+// ── Gemini circuit breaker ───────────────────────────────────────────────────
+// After consecutive total failures (e.g. dead quota), skip Gemini's retry
+// ladder entirely for a cooldown window and go straight to the fallback —
+// otherwise every agent call burns ~10s discovering the same dead key.
+
+let geminiFailStreak    = 0;
+let geminiCooldownUntil = 0;
+const BREAKER_THRESHOLD   = 3;
+const BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
+
 // ── Public API ────────────────────────────────────────────────────────────────
 export async function askGemini(prompt: string, jsonResponse: boolean = true): Promise<any> {
   if (!config.gemini.apiKey) {
     console.warn("[Gemini] No API key — trying AI/ML API fallback");
     const aiml = await askAimlFallback(prompt, jsonResponse);
     return aiml ?? buildFallback(prompt);
+  }
+
+  if (Date.now() < geminiCooldownUntil) {
+    const aiml = await askAimlFallback(prompt, jsonResponse);
+    if (aiml) return aiml;
+    return buildFallback(prompt);
   }
 
   // Cache check — key must cover the FULL prompt: every agent prompt starts with
@@ -121,9 +137,15 @@ export async function askGemini(prompt: string, jsonResponse: boolean = true): P
   try {
     console.log(`[Gemini] → gemini-2.0-flash (${prompt.slice(0, 60).replace(/\n/g, " ")}…)`);
     const result = await callGemini(prompt, jsonResponse, 0);
+    geminiFailStreak = 0;
     responseCache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
     return result;
   } catch (err: any) {
+    geminiFailStreak += 1;
+    if (geminiFailStreak >= BREAKER_THRESHOLD) {
+      geminiCooldownUntil = Date.now() + BREAKER_COOLDOWN_MS;
+      console.warn(`[Gemini] Circuit breaker OPEN after ${geminiFailStreak} consecutive failures — skipping Gemini for ${BREAKER_COOLDOWN_MS / 60000} min`);
+    }
     console.error(`[Gemini] All retries failed (${err.message}) — trying AI/ML API fallback`);
     const aiml = await askAimlFallback(prompt, jsonResponse);
     if (aiml) {

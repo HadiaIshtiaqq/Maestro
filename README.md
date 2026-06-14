@@ -10,7 +10,7 @@ NEXUS is a multi-agent platform that turns a storm of raw operational and securi
 |---|---|
 | ≥3 agents through Band | 11 agents + human commander in one per-incident Band room |
 | Regulated / high-stakes | Enterprise: security breaches, outages, data-integrity — DORA/SOC2/HIPAA-style workflows |
-| Human-in-the-loop | Human Commander approves every irreversible action via an approval gate (auto-veto on 5-min timeout) |
+| Human-in-the-loop | Human Commander approval is **enforced by policy for SEV-1/SEV-2** (the LLM can request the gate for lower severities but cannot opt out of it); auto-veto on 5-min timeout or server restart |
 | Audit trail | Every Band message is mirrored to MongoDB before delivery completes; compliance export at `/api/band/audit-trail/:id`; rooms rehydrate from MongoDB on restart |
 | Cross-framework | Validation agent runs **Claude (Anthropic)** when `ANTHROPIC_API_KEY` is set (falls back to Gemini otherwise — the trace records which engine ran); all others Gemini 2.0 Flash |
 | Dynamic recruitment | Commander triage recruits the Phase-2 team after severity is confirmed (severity-based policy: SEV-1–3 full team, SEV-4/5 light team) |
@@ -138,6 +138,7 @@ Shared on-call headcount, contended across concurrent incidents ([src/services/r
 - The audit trail is durable (mirror is awaited before a message is considered posted) but not cryptographically immutable — no hash chain.
 - The "social/traffic feed" panels in the signal-input UI are **AI-generated simulations**, labeled as such in the response.
 - Autonomous-action side-effects (PagerDuty paging, Slack war-rooms, SMS retractions) are **simulated** (`simulated: true` on every record) — the decision logic is real, the integrations are demo stand-ins.
+- Cross-signal dedup keys on signal `type` within a 15-minute window — two *distinct* incidents of the same type in that window would merge. Production would key on type + affected service.
 - Resource pool and approval gates are in-memory; single-node only.
 - The Expo mobile app (`mobile/`) is a companion citizen-reporting client and not part of the Track 3 submission scope. Set `EXPO_PUBLIC_API_URL` for LAN development.
 

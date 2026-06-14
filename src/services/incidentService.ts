@@ -155,6 +155,7 @@ export class IncidentService {
             },
             confidence:              0.9,
             requires_human_approval: false,
+            engine:                  'system (dedup rule)',
           }).catch(() => {});
         }
         eventBus.emit('incident:updated', { incident: existing });
@@ -264,20 +265,32 @@ export class IncidentService {
     const cmdTask      = { ...initialTask, context: allContext };
     const cmdResult    = await cmdAgent.execute(cmdTask);
     const cmdOutput    = cmdResult.output ?? {};
-    const requiresApproval = !!(cmdOutput?.recommendedAction?.requiresHumanApproval);
+    const sevLevel     = cmdOutput?.sevLevel ?? phase1Context['severity-blast-radius']?.sevLevel ?? 'SEV-3';
+
+    // Governance policy: SEV-1/SEV-2 ALWAYS require human approval. The LLM
+    // may additionally request approval for lower severities, but it cannot
+    // opt a high-severity incident out of the gate.
+    const llmRequestedApproval = !!(cmdOutput?.recommendedAction?.requiresHumanApproval);
+    const policyForced         = sevLevel === 'SEV-1' || sevLevel === 'SEV-2';
+    const requiresApproval     = llmRequestedApproval || policyForced;
 
     const cmdMsg = await bandAdapter.post(room.room_id, {
       msg_type:                requiresApproval ? 'approval_request' : 'proposal',
       from_agent:              'incident-commander',
       incident_id:             incidentId,
       step:                    'final-commander',
-      payload:                 cmdOutput,
+      payload: {
+        ...cmdOutput,
+        approvalPolicy: policyForced && !llmRequestedApproval
+          ? `Human approval enforced by policy (${sevLevel})`
+          : undefined,
+      },
       confidence:              cmdResult.confidence ?? 0.7,
       requires_human_approval: requiresApproval,
+      engine:                  cmdResult.engine,
     });
 
     // 9. Resource allocation (enterprise pool — no location required)
-    const sevLevel  = cmdOutput?.sevLevel ?? phase1Context['severity-blast-radius']?.sevLevel ?? 'SEV-3';
     const severity  = sevToLegacy(sevLevel);
     const resourceResult = resourceManager.allocate({
       incidentId,

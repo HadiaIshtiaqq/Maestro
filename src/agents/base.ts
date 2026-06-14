@@ -34,6 +34,7 @@ export abstract class NexusAgent {
       payload:                 result,
       confidence:              result?.confidence ?? 0.5,
       requires_human_approval: result?.requires_human_approval ?? false,
+      engine:                  result?.engine,
     };
   }
 
@@ -76,6 +77,7 @@ export class CommanderTriageAgent extends NexusAgent {
       message: `SEV assessed as ${sevLevel}. Recruiting Phase-2 response team: [${agentsRecruited.join(', ')}]`,
       confidence: 0.92,
       requires_human_approval: false,
+      engine: 'policy (severity-based)',
     };
   }
 }

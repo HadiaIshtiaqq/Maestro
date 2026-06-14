@@ -28,6 +28,9 @@ async function startServer() {
   }
 
   const app    = express();
+  // Behind Cloud Run / load balancers req.ip must come from X-Forwarded-For,
+  // or the per-IP rate limiter lumps every visitor into one bucket.
+  app.set("trust proxy", 1);
   const server = http.createServer(app);
   const io     = new Server(server, {
     cors: { origin: corsOrigin, methods: ["GET", "POST"] },
