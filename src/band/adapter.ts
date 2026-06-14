@@ -198,28 +198,35 @@ export class MockBandAdapter extends EventEmitter implements IBandAdapter {
 }
 
 // ─── Band SDK Adapter (real platform) ────────────────────────────────────────
-// Real Band Agent API integration, built against the documented contract:
+// Real Band Agent API integration, verified live against the actual API:
 //   Base URL : https://app.band.ai/api/v1/agent        (BAND_API_URL override)
 //   Auth     : X-API-Key: <agent api key>              (BAND_API_KEY)
-//   Create   : POST /chats            { chat: { title, task_id } }
-//   Post msg : POST /chats/{id}/messages { message: { content, mentions[] } }
+//   Create   : POST /chats   { chat: { title } }   -> { data: { id, ... } }
+//   Post msg : POST /chats/{id}/messages { message: { content, mentions:[{id}] } }
 //   List msg : GET  /chats/{id}/messages -> { data: [...], metadata }
 //
-// Band's message model is text + @mentions; NEXUS's structured BandMessage
-// envelopes are serialized into the message content (with a compact header so
-// findings stay human-readable in the Band UI) and the structured payload is
-// preserved locally for the operator view + audit mirror. The local Mock store
-// remains the source of truth for governance (authority rules) and audit; Band
-// is the live agent-to-agent coordination backbone on top.
+// Live API facts this adapter encodes (each cost a failed call to discover):
+//   • The create/response envelope is wrapped in `data` — chat id is data.id.
+//   • `task_id` must reference an EXISTING Band task; we omit it (was rejected
+//     with "does not exist" when passed an arbitrary incident UUID).
+//   • Every message must @mention another PARTICIPANT by `id` (UUID). A handle
+//     is not accepted, and an agent CANNOT mention itself ("cannot_mention_self").
+//     So BAND_MENTION_ID must be another participant in the chat (a second
+//     Maestro agent or a human). Without it, remote posting is skipped (the
+//     local governed/audited room keeps working regardless).
 //
-// Activate: BAND_USE_SDK=true + BAND_API_KEY=<agent key from Band Human API>.
-// The agent key is issued when each agent is registered via Band's Human API —
-// a subscription_id is NOT an agent key.
+// Band's text+mention model carries Maestro's structured BandMessage envelopes
+// in the message content (human-readable header + compact JSON). The local Mock
+// store stays the source of truth for authority enforcement, the hash-chained
+// audit trail, and the operator UI; Band is the live coordination backbone.
+//
+// Activate: BAND_USE_SDK=true + BAND_API_KEY + BAND_MENTION_ID.
 
 export class BandSdkAdapter extends MockBandAdapter {
-  private apiUrl  = (process.env.BAND_API_URL ?? "https://app.band.ai/api/v1/agent").replace(/\/$/, "");
-  private apiKey  = process.env.BAND_API_KEY ?? "";
-  // NEXUS room_id (uuid) → Band chat id
+  private apiUrl    = (process.env.BAND_API_URL ?? "https://app.band.ai/api/v1/agent").replace(/\/$/, "");
+  private apiKey    = process.env.BAND_API_KEY ?? "";
+  private mentionId = process.env.BAND_MENTION_ID ?? "";   // another participant's UUID
+  // Maestro room_id (uuid) → Band chat id
   private chatIds = new Map<string, string>();
 
   private async api(method: string, path: string, body?: any): Promise<any> {
@@ -233,7 +240,7 @@ export class BandSdkAdapter extends MockBandAdapter {
     return res.status === 204 ? null : res.json();
   }
 
-  // Render a structured NEXUS envelope into a readable Band message body.
+  // Render a structured Maestro envelope into a readable Band message body.
   private renderContent(message: Omit<BandMessage, "id" | "room_id" | "ts">): string {
     const tag = message.msg_type.toUpperCase();
     const eng = message.engine ? ` · ${message.engine}` : "";
@@ -250,10 +257,22 @@ export class BandSdkAdapter extends MockBandAdapter {
   override async createRoom(incidentId: string): Promise<BandRoom> {
     const room = await super.createRoom(incidentId);
     try {
-      const chat = await this.api("POST", "/chats", {
-        chat: { title: `NEXUS incident ${incidentId.slice(0, 8)}`, task_id: incidentId },
+      // task_id intentionally omitted — Band requires it to reference a real task.
+      const resp = await this.api("POST", "/chats", {
+        chat: { title: `Maestro incident ${incidentId.slice(0, 8)}` },
       });
-      if (chat?.id) this.chatIds.set(room.room_id, chat.id);
+      const chatId = resp?.data?.id ?? resp?.id;
+      if (chatId) {
+        this.chatIds.set(room.room_id, chatId);
+        // Add the mention target (and optional human commander) as participants,
+        // otherwise Band rejects messages with "mentioned_participant_not_in_room".
+        for (const pid of [this.mentionId, process.env.BAND_HUMAN_ID].filter(Boolean)) {
+          await this.api("POST", `/chats/${chatId}/participants`, {
+            participant: { participant_id: pid },
+          }).catch(e => console.warn(`[Band] add participant ${pid} failed: ${e.message}`));
+        }
+        console.log(`[Band] Opened real Band chat ${chatId} for incident ${incidentId.slice(0, 8)}`);
+      }
     } catch (e: any) {
       console.warn(`[Band] createRoom remote failed (local room still active): ${e.message}`);
     }
@@ -267,15 +286,21 @@ export class BandSdkAdapter extends MockBandAdapter {
     // Local store first — preserves authority enforcement, audit mirror, UI.
     const msg = await super.post(roomId, message);
     const chatId = this.chatIds.get(roomId);
-    if (chatId) {
-      this.api("POST", `/chats/${chatId}/messages`, {
-        message: {
-          content: this.renderContent(message),
-          // Band requires ≥1 mention for routing; @commander keeps the human
-          // commander in the loop on every posted finding.
-          mentions: [{ handle: "commander", name: "Incident Commander" }],
-        },
-      }).catch(e => console.warn(`[Band] post remote failed for ${roomId}: ${e.message}`));
+    if (chatId && this.mentionId) {
+      // Awaited so failures surface and post ordering is preserved.
+      try {
+        await this.api("POST", `/chats/${chatId}/messages`, {
+          message: {
+            content:  this.renderContent(message),
+            mentions: [{ id: this.mentionId }],   // must be another participant
+          },
+        });
+        console.log(`[Band] → posted ${message.msg_type} from ${message.from_agent} to chat ${chatId.slice(0, 8)}`);
+      } catch (e: any) {
+        console.warn(`[Band] post remote failed for chat ${chatId.slice(0, 8)}: ${e.message}`);
+      }
+    } else if (chatId && !this.mentionId) {
+      console.warn("[Band] BAND_MENTION_ID not set — skipping remote post (Band requires mentioning another participant)");
     }
     return msg;
   }

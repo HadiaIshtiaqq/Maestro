@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "NEXUS",
-    "slug": "nexus-mobile",
+    "name": "Maestro",
+    "slug": "maestro-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,11 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nexus.crisisplatform",
+      "bundleIdentifier": "com.maestro.crisisplatform",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "NEXUS uses your location to send you alerts for incidents in your area.",
-        "NSLocationAlwaysUsageDescription": "NEXUS uses your location to send you alerts even when the app is in the background.",
-        "NSMicrophoneUsageDescription": "NEXUS uses your microphone to record voice incident reports."
+        "NSLocationWhenInUseUsageDescription": "Maestro uses your location to send you alerts for incidents in your area.",
+        "NSLocationAlwaysUsageDescription": "Maestro uses your location to send you alerts even when the app is in the background.",
+        "NSMicrophoneUsageDescription": "Maestro uses your microphone to record voice incident reports."
       },
       "config": {
         "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
@@ -29,7 +29,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0c10"
       },
-      "package": "com.nexus.crisisplatform",
+      "package": "com.maestro.crisisplatform",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -57,7 +57,7 @@
       [
         "expo-av",
         {
-          "microphonePermission": "NEXUS needs microphone access for voice incident reports."
+          "microphonePermission": "Maestro needs microphone access for voice incident reports."
         }
       ]
     ],

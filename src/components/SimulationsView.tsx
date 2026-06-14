@@ -407,7 +407,7 @@ export default function SimulationsView({ incidents = [] }: { incidents?: any[] 
                 <span className="text-4xl md:text-6xl font-black text-secondary tracking-tight">08.4</span>
                 <span className="font-mono text-base md:text-lg text-secondary font-bold tracking-widest">MINS</span>
               </div>
-              <p className="font-mono text-[10px] md:text-xs uppercase tracking-widest text-on-surface-variant mt-2">NEXUS Optimized Route (Sigma-4 Applied)</p>
+              <p className="font-mono text-[10px] md:text-xs uppercase tracking-widest text-on-surface-variant mt-2">Maestro Optimized Route (Sigma-4 Applied)</p>
               <div className="mt-4 w-full h-1 bg-white/10 rounded-full overflow-hidden">
                 <div className="w-[35%] h-full bg-secondary shadow-[0_0_15px_#4b8eff]"></div>
               </div>

@@ -1,4 +1,4 @@
-// NEXUS Mobile Design System — Dark Command Center
+// Maestro Mobile Design System — Dark Command Center
 export const COLORS = {
   bg:        '#121214',
   surface:   '#18181c',

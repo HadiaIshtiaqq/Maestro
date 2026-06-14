@@ -79,7 +79,7 @@ export default function TopBar({
           <Zap className="w-3.5 h-3.5 text-white fill-current" />
         </div>
         <div className="hidden sm:block">
-          <div className="font-black text-sm text-white tracking-tight leading-none">NEXUS</div>
+          <div className="font-black text-sm text-white tracking-tight leading-none">Maestro</div>
           <div className="text-[7px] font-bold uppercase tracking-[.15em] text-white/25 leading-none mt-0.5">Command Center</div>
         </div>
       </div>

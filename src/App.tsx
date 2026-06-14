@@ -57,7 +57,7 @@ export default function App() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(6,182,212,0.4)]">
             <Zap className="w-8 h-8 text-white fill-current" />
           </div>
-          <div className="text-5xl font-black tracking-tighter text-white mb-2">NEXUS</div>
+          <div className="text-5xl font-black tracking-tighter text-white mb-2">Maestro</div>
           <div className="text-[10px] uppercase tracking-[0.4em] text-white/30 font-bold mb-8">Crisis Intelligence & Response Orchestrator</div>
           <div className="w-72 h-1 bg-white/5 rounded-full overflow-hidden">
             <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2, ease: "easeInOut" }}
@@ -167,7 +167,7 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* NEXUS footer watermark */}
+      {/* Maestro footer watermark */}
       <div className="fixed bottom-4 right-4 pointer-events-none flex items-center gap-1.5 opacity-20">
         <div className="flex gap-0.5">
           {[1,2,3,4,5,6].map(i => (

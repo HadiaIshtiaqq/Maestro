@@ -38,7 +38,7 @@ export class ActionSimulator {
    */
   static async simulate(input: SimulationInput) {
     const prompt = `
-You are a Crisis Action Simulation Engine for the NEXUS system.
+You are a Crisis Action Simulation Engine for the Maestro system.
 Simulate the following emergency response action and predict outcomes.
 
 Incident ID : ${input.incidentId}
@@ -73,7 +73,7 @@ Return ONLY this JSON (no markdown):
    */
   static async simulateImpact(input: ImpactInput) {
     const prompt = `
-You are the NEXUS Impact Simulation Engine.
+You are the Maestro Impact Simulation Engine.
 Predict the before and after state of a crisis intervention. Be specific with numbers.
 
 Incident ID  : ${input.incidentId}
@@ -122,7 +122,7 @@ Return ONLY this JSON (no markdown):
    */
   static async simulateFalsePositiveRecovery(input: FalsePositiveInput) {
     const prompt = `
-You are the NEXUS False Positive Recovery Simulator.
+You are the Maestro False Positive Recovery Simulator.
 A field report has come in marking incident ${input.incidentId} (${input.incidentType}) as a FALSE ALARM.
 Model the complete retraction and recovery process.
 

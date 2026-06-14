@@ -47,7 +47,7 @@ export default function EmergencyContactScreen({ navigation, route }: any) {
           <View style={styles.icon}><Text style={{ fontSize: 48 }}>🆘</Text></View>
           <Text style={styles.title}>Emergency Contact</Text>
           <Text style={styles.sub}>
-            When you trigger SOS or a high-severity incident hits your area, NEXUS automatically
+            When you trigger SOS or a high-severity incident hits your area, Maestro automatically
             notifies this person via SMS or WhatsApp.
           </Text>
 

@@ -101,7 +101,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
         </View>
       )}
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleModel]}>
-        {!isUser && <Text style={styles.aiLabel}>NEXUS AI · GEMINI 2.0</Text>}
+        {!isUser && <Text style={styles.aiLabel}>Maestro AI · GEMINI 2.0</Text>}
         {msg.isVoice && <Text style={styles.voiceTag}>🎤 Voice</Text>}
         <Text style={isUser ? styles.bubbleTextUser : styles.bubbleTextModel}>{msg.content}</Text>
       </View>
@@ -204,7 +204,7 @@ function ConfidenceResult({ result, onClose }: { result: SubmitResult; onClose: 
 export default function AICommandScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([{
     id: 'init', role: 'model',
-    content: "NEXUS AI active. Describe the crisis — location, type, and how many people affected. I'll process it through the 4-agent pipeline.",
+    content: "Maestro AI active. Describe the crisis — location, type, and how many people affected. I'll process it through the 4-agent pipeline.",
   }]);
   const [input, setInput]           = useState('');
   const [loading, setLoading]       = useState(false);

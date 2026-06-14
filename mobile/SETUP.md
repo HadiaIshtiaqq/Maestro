@@ -1,4 +1,4 @@
-# NEXUS Mobile App — Setup Guide
+# Maestro Mobile App — Setup Guide
 
 ## Prerequisites
 - Node.js 18+

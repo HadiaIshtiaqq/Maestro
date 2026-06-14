@@ -1,4 +1,4 @@
-# Deploys NEXUS to Cloud Run. Secrets are read from .env — never hardcode them here.
+# Deploys Maestro to Cloud Run. Secrets are read from .env — never hardcode them here.
 # Usage: .\deploy.ps1
 
 # Fix PATH for this session
@@ -30,7 +30,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
 
 # Deploy
 Write-Host "Deploying to Cloud Run..." -ForegroundColor Cyan
-gcloud run deploy nexus-backend `
+gcloud run deploy maestro-backend `
   --source . `
   --region us-central1 `
   --allow-unauthenticated `

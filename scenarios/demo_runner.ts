@@ -1,5 +1,5 @@
 /**
- * NEXUS Demo Runner
+ * Maestro Demo Runner
  * Fires the three canonical demo scenarios for the Band of Agents Hackathon.
  *
  * Usage:
@@ -348,7 +348,7 @@ async function scenario3_concurrent() {
 
 async function main() {
   const scenario = process.argv[2] ?? 'all';
-  console.log(`\n🚀 NEXUS Demo Runner — targeting ${BASE_URL}`);
+  console.log(`\n🚀 Maestro Demo Runner — targeting ${BASE_URL}`);
   console.log(`   Scenario: ${scenario}\n`);
 
   try {

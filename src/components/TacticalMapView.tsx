@@ -239,7 +239,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
     if (activeSignalTab === "ai" && chatMessages.length === 0) {
       setChatMessages([{
         role: "model",
-        content: "Hello, I'm NEXUS AI. I'll help you report an incident. What's happening right now?",
+        content: "Hello, I'm Maestro AI. I'll help you report an incident. What's happening right now?",
       }]);
     }
   }, [activeSignalTab]);
@@ -887,7 +887,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
             </div>
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl md:text-2xl font-black tracking-tight text-[#00e5ff] leading-none truncate">NEXUS</h1>
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-[#00e5ff] leading-none truncate">Maestro</h1>
             <p className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] font-bold opacity-50 mt-1 truncate">Crisis Intelligence & Response Network</p>
           </div>
         </div>
@@ -962,7 +962,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
             <div className="rounded-2xl overflow-hidden border border-[#00e5ff]/20 shadow-xl" style={{ height: 380 }}>
               <APIProvider apiKey={GMAPS_KEY}>
                 <Map
-                  mapId="nexus-response"
+                  mapId="maestro-response"
                   defaultCenter={{ lat: 24.8607, lng: 67.0011 }}
                   defaultZoom={12}
                   disableDefaultUI
@@ -2376,7 +2376,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
                   onClick={() => {
                     setActiveSignalTab(type.id);
                     if (type.id === "ai" && chatMessages.length === 0) {
-                      setChatMessages([{ role: "model", content: "Hello, I'm NEXUS AI. I'll help you report an incident. What's happening right now?" }]);
+                      setChatMessages([{ role: "model", content: "Hello, I'm Maestro AI. I'll help you report an incident. What's happening right now?" }]);
                     }
                   }}
                   className={cn(
@@ -2407,7 +2407,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
                           : "bg-white/8 text-white/80 border border-white/10 rounded-bl-sm"
                       )}>
                         {msg.role === "model" && (
-                          <span className="text-[8px] font-black uppercase tracking-wider text-violet-400 block mb-0.5">NEXUS AI</span>
+                          <span className="text-[8px] font-black uppercase tracking-wider text-violet-400 block mb-0.5">Maestro AI</span>
                         )}
                         {msg.content}
                       </div>

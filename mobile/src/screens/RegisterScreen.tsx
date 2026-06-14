@@ -69,7 +69,7 @@ export default function RegisterScreen({ navigation }: any) {
           </TouchableOpacity>
 
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.sub}>Join NEXUS to get real-time crisis alerts for your area</Text>
+          <Text style={styles.sub}>Join Maestro to get real-time crisis alerts for your area</Text>
 
           <View style={styles.form}>
             <Field label="Full Name" value={name} onChangeText={setName} placeholder="Hadia Khan" />

@@ -1,12 +1,12 @@
-# NEXUS — Enterprise Critical-Incident Response & Coordination Platform
+# Maestro — Enterprise Critical-Incident Response & Coordination Platform
 
 **Band of Agents Hackathon (lablab.ai) · Track 3 — Regulated & High-Stakes Workflows**
 
-NEXUS is a multi-agent platform that turns a storm of raw operational and security signals into a single, governed, fully-traceable incident response — with a band of 11 specialized agents and a human commander coordinating live inside a shared **Band room**.
+Maestro is a multi-agent platform that turns a storm of raw operational and security signals into a single, governed, fully-traceable incident response — with a band of 11 specialized agents and a human commander coordinating live inside a shared **Band room**.
 
-## Why NEXUS (Track 3)
+## Why Maestro (Track 3)
 
-| Requirement | How NEXUS delivers |
+| Requirement | How Maestro delivers |
 |---|---|
 | ≥3 agents through Band | 11 agents + human commander in one per-incident Band room |
 | Regulated / high-stakes | Enterprise: security breaches, outages, data-integrity — DORA/SOC2/HIPAA-style workflows |
@@ -90,7 +90,7 @@ npx tsx scenarios/demo_runner.ts concurrent      # two incidents, shared SRE poo
 The Band integration is isolated behind the `IBandAdapter` interface in [src/band/adapter.ts](src/band/adapter.ts):
 
 - **`MockBandAdapter`** (default) — in-process rooms + authority enforcement + MongoDB mirror. Lets the full workflow run before platform credentials arrive.
-- **`BandSdkAdapter`** (`BAND_USE_SDK=true`) — posts into the **real Band Agent API** (`https://app.band.ai/api/v1/agent`, `X-API-Key` auth): `POST /chats` opens a chat per incident, `POST /chats/{id}/messages` posts each finding (structured NEXUS envelope rendered into Band's text+@mention message model), `GET /chats/{id}/messages` reads the trail. The local Mock store remains the source of truth for authority enforcement and the audit mirror; Band is the live agent-to-agent coordination backbone on top. Requires an agent `X-API-Key` registered via Band's Human API.
+- **`BandSdkAdapter`** (`BAND_USE_SDK=true`) — posts into the **real Band Agent API** (`https://app.band.ai/api/v1/agent`, `X-API-Key` auth): `POST /chats` opens a chat per incident, `POST /chats/{id}/messages` posts each finding (structured Maestro envelope rendered into Band's text+@mention message model), `GET /chats/{id}/messages` reads the trail. The local Mock store remains the source of truth for authority enforcement and the audit mirror; Band is the live agent-to-agent coordination backbone on top. Requires an agent `X-API-Key` registered via Band's Human API.
 
 Agent logic, governance rules, and the UI depend only on `IBandAdapter`, so the swap is contained to this one file.
 
@@ -155,7 +155,7 @@ Pipelines for separate incidents run concurrently (`ConcurrentOrchestrator`); st
 ## Project Structure
 
 ```
-NEXUS/
+Maestro/
 ├── src/
 │   ├── band/
 │   │   ├── adapter.ts          # MockBandAdapter + BandSdkAdapter + singleton selection

@@ -270,7 +270,7 @@ export default function IncidentReportingView() {
               Incident <span className="text-primary">Reporting</span>
             </h1>
             <p className="text-[10px] md:text-xs font-bold text-on-surface-variant uppercase tracking-[0.3em] opacity-60">
-              Nexus-Link: Multi-Lingual Priority Channel
+              Maestro-Link: Multi-Lingual Priority Channel
             </p>
           </div>
         </div>
@@ -436,7 +436,7 @@ export default function IncidentReportingView() {
                         <p className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">
                           {submissionResult?.incidentId
                             ? `Incident ID: ${submissionResult.incidentId.slice(0, 8)}… · Marked UNVERIFIED on map`
-                            : submissionResult?.message ?? "Nexus-ARES: Protocol Gamma-4 Initialized"}
+                            : submissionResult?.message ?? "Maestro-ARES: Protocol Gamma-4 Initialized"}
                         </p>
                       </div>
                     </div>

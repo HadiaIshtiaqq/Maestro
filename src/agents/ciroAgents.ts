@@ -25,20 +25,20 @@ const FEATHERLESS_PROVIDER = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NEXUS Enterprise Incident Response Agents
+// Maestro Enterprise Incident Response Agents
 // Band-native, enterprise-focused agents replacing the civic emergency pipeline.
 // Each agent's prompt is also available in src/agents/prompts/{role}.md
 // and is loaded per-service via AGENT_ROLE env var in docker-compose.yml.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const nexusOrchestrator = new AntigravityOrchestrator();
-export const concurrentOrchestrator = new ConcurrentOrchestrator(nexusOrchestrator);
+const maestroOrchestrator = new AntigravityOrchestrator();
+export const concurrentOrchestrator = new ConcurrentOrchestrator(maestroOrchestrator);
 
 // ── 0. Intake & Normalization ─────────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "intake-normalization",
   "Intake & Normalization Agent",
-  `You are the Intake & Normalization Agent for NEXUS — an enterprise critical-incident response platform.
+  `You are the Intake & Normalization Agent for Maestro — an enterprise critical-incident response platform.
 
 Ingest raw, heterogeneous signals from monitoring/APM, SIEM/log systems, support tickets, security tooling,
 and human reports. Normalize them to a common enterprise schema.
@@ -77,10 +77,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 1. Correlation & Dedup ────────────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "correlation-dedup",
   "Correlation & Dedup Agent",
-  `You are the Correlation & Dedup Agent for NEXUS.
+  `You are the Correlation & Dedup Agent for Maestro.
 
 Cluster related normalized signals into a single coherent incident. Suppress alert storms.
 Detect duplicates: same service + same region within 10 minutes = one incident.
@@ -117,10 +117,10 @@ Return ONLY valid JSON (no markdown fences):
 
 // ── 2. Validation & Credibility (Claude cross-framework) ──────────────────────
 // Runs via Anthropic Claude SDK when ANTHROPIC_API_KEY is set; falls back to Gemini.
-nexusOrchestrator.registerAgent(new ClaudeAgent(
+maestroOrchestrator.registerAgent(new ClaudeAgent(
   "validation-credibility",
   "Validation & Credibility Agent (Claude)",
-  `You are the Validation & Credibility Agent for NEXUS, powered by Claude (Anthropic) — the cross-framework demonstration agent.
+  `You are the Validation & Credibility Agent for Maestro, powered by Claude (Anthropic) — the cross-framework demonstration agent.
 
 Perform multi-source weighted confidence scoring. Weight sources: monitoring 40%, SIEM 30%, tickets 20%, human 10%.
 Resolve conflicts explicitly. Flag likely false positives.
@@ -153,10 +153,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 3. Classification ─────────────────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "classification",
   "Classification Agent",
-  `You are the Classification Agent for NEXUS.
+  `You are the Classification Agent for Maestro.
 
 Label the validated incident from the enterprise taxonomy.
 Valid primaryType values: security | outage | data_integrity | performance | compliance_event
@@ -182,10 +182,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 4. Severity & Blast-Radius ────────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "severity-blast-radius",
   "Severity & Blast-Radius Agent",
-  `You are the Severity & Blast-Radius Agent for NEXUS.
+  `You are the Severity & Blast-Radius Agent for Maestro.
 
 SEV scale: SEV-1 (P0, full outage) → SEV-5 (P4, cosmetic).
 - SEV-1: Complete outage — all customers; revenue impact per minute
@@ -220,10 +220,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 5. Responder Allocation ───────────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "responder-allocation",
   "Responder Allocation Agent",
-  `You are the Responder Allocation Agent for NEXUS.
+  `You are the Responder Allocation Agent for Maestro.
 
 Assign on-call SREs, SecEngs, DataEngs, an IC, and ComplianceOfficer from the pool.
 Handle scarcity: if concurrent incidents compete for the same team, arbitrate by severity × regulatory exposure.
@@ -260,10 +260,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 6. Dependency Impact Simulation (cross-framework: AI/ML API) ─────────────
-nexusOrchestrator.registerAgent(new OpenAICompatAgent(
+maestroOrchestrator.registerAgent(new OpenAICompatAgent(
   "dependency-impact-sim",
   "Dependency Impact Simulation Agent",
-  `You are the Dependency Impact Simulation Agent for NEXUS.
+  `You are the Dependency Impact Simulation Agent for Maestro.
 
 Model cascading failures across the service dependency graph.
 Dependency types: sync (fails immediately) | async (buffer exhaustion) | shared_infra
@@ -294,10 +294,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 7. Mitigation Projection ──────────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "mitigation-projection",
   "Mitigation Projection Agent",
-  `You are the Mitigation Projection Agent for NEXUS.
+  `You are the Mitigation Projection Agent for Maestro.
 
 Propose concrete mitigations with quantified before/after outcomes.
 Types: failover | rollback | scale_out | block_isolate | forced_reauth | quarantine
@@ -330,10 +330,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 8. Runbook Advisor (cross-framework: Featherless open-source inference) ──
-nexusOrchestrator.registerAgent(new OpenAICompatAgent(
+maestroOrchestrator.registerAgent(new OpenAICompatAgent(
   "runbook-advisor",
   "Runbook & Remediation Advisor Agent",
-  `You are the Runbook & Remediation Advisor Agent for NEXUS.
+  `You are the Runbook & Remediation Advisor Agent for Maestro.
 
 Retrieve or synthesise the most relevant runbook for this incident type and severity.
 
@@ -370,10 +370,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 9. Stakeholder Communications ────────────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "stakeholder-comms",
   "Stakeholder Communications Agent",
-  `You are the Stakeholder Communications Agent for NEXUS.
+  `You are the Stakeholder Communications Agent for Maestro.
 
 Draft tailored communications for executive leadership, customers, support team, and legal/compliance.
 Tone and disclosure level must match each audience precisely.
@@ -411,10 +411,10 @@ Return ONLY valid JSON (no markdown fences):
 ));
 
 // ── 10. Incident Commander (Master Agent) ─────────────────────────────────────
-nexusOrchestrator.registerAgent(new GeminiAgent(
+maestroOrchestrator.registerAgent(new GeminiAgent(
   "incident-commander",
   "Incident Commander Agent",
-  `You are the Incident Commander — the master decision-maker for NEXUS.
+  `You are the Incident Commander — the master decision-maker for Maestro.
 
 Synthesise ALL prior agent outputs into an authoritative incident report.
 You orchestrate response sequencing, recruit agents, and gate high-stakes actions on human approval.
@@ -459,4 +459,4 @@ Return ONLY valid JSON (no markdown fences):
 }`
 ));
 
-export { nexusOrchestrator };
+export { maestroOrchestrator };

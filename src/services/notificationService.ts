@@ -1,5 +1,5 @@
 /**
- * NEXUS Notification Service
+ * Maestro Notification Service
  * Sends via WhatsApp Cloud API (Meta) + Gmail SMTP simultaneously.
  * Both work in Pakistan. Both have free tiers.
  */
@@ -63,7 +63,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
     return false;
   }
   try {
-    const info = await transport.sendMail({ from: `NEXUS Crisis System <${from}>`, to, subject, html });
+    const info = await transport.sendMail({ from: `Maestro Crisis System <${from}>`, to, subject, html });
     console.log(`[Mail] Sent → ${to} | ${info.messageId}`);
     return true;
   } catch (e: any) {
@@ -106,7 +106,7 @@ function buildEmailHtml(opts: {
       </div>
       <div style="padding:16px 24px;border-top:1px solid #1e2530;color:#4b5563;font-size:11px">${opts.footer}</div>
     </div>
-    <p style="text-align:center;color:#374151;font-size:10px;margin-top:16px">NEXUS · Crisis Intelligence & Response Orchestrator · Antigravity AI</p>
+    <p style="text-align:center;color:#374151;font-size:10px;margin-top:16px">Maestro · Crisis Intelligence & Response Orchestrator · Antigravity AI</p>
   </div>
 </body></html>`;
 }
@@ -148,12 +148,12 @@ export interface EmergencyAlertPayload {
 
 export async function sendEmergencyContactAlert(p: EmergencyAlertPayload) {
   const emoji  = p.severity === 'critical' ? '🚨🚨🚨' : p.severity === 'high' ? '🚨' : '⚠️';
-  const prefix = p.isSos ? `🆘 SOS from ${p.userName}` : `${emoji} NEXUS Crisis Alert`;
+  const prefix = p.isSos ? `🆘 SOS from ${p.userName}` : `${emoji} Maestro Crisis Alert`;
   const badgeColor = p.severity === 'critical' ? '#ef4444' : p.severity === 'high' ? '#f59e0b' : '#3b82f6';
 
   const whatsappText = p.isSos
-    ? `${prefix}\n\n${p.userName} (${p.userPhone}) triggered an SOS.\n📍 Location: ${p.incidentLocation}\n⚠️ Incident: ${p.incidentType}\n🔴 Severity: ${p.severity.toUpperCase()}\n\nAct immediately. — NEXUS Crisis System`
-    : `${prefix}\n\n${p.userName} is in an affected area.\n📍 Location: ${p.incidentLocation}\n⚠️ Incident: ${p.incidentType}\n🔴 Severity: ${p.severity.toUpperCase()}\n\nStay safe. — NEXUS Crisis System`;
+    ? `${prefix}\n\n${p.userName} (${p.userPhone}) triggered an SOS.\n📍 Location: ${p.incidentLocation}\n⚠️ Incident: ${p.incidentType}\n🔴 Severity: ${p.severity.toUpperCase()}\n\nAct immediately. — Maestro Crisis System`
+    : `${prefix}\n\n${p.userName} is in an affected area.\n📍 Location: ${p.incidentLocation}\n⚠️ Incident: ${p.incidentType}\n🔴 Severity: ${p.severity.toUpperCase()}\n\nStay safe. — Maestro Crisis System`;
 
   const emailSubject = p.isSos ? `🆘 SOS Alert — ${p.userName}` : `${emoji} Crisis Alert for ${p.userName} | ${p.incidentType}`;
   const emailHtml = buildEmailHtml({
@@ -166,7 +166,7 @@ export async function sendEmergencyContactAlert(p: EmergencyAlertPayload) {
       { label: 'Severity', value: p.severity.toUpperCase() },
       { label: 'Location', value: p.incidentLocation },
     ],
-    footer:  p.isSos ? 'Respond immediately. This is an automated SOS from NEXUS.' : 'Automated alert from NEXUS Crisis Orchestrator. AI-verified incident.',
+    footer:  p.isSos ? 'Respond immediately. This is an automated SOS from Maestro.' : 'Automated alert from Maestro Crisis Orchestrator. AI-verified incident.',
     mapsUrl: p.mapsUrl,
   });
 
@@ -196,7 +196,7 @@ export interface DispatchPayload {
 export async function sendDispatchAlert(p: DispatchPayload) {
   const emoji  = p.service === 'ambulance' ? '🚑' : p.service === 'police' ? '🚔' : '🚒';
   const mapsUrl = `https://maps.google.com/?q=${p.location.lat},${p.location.lng}`;
-  const waText  = `${emoji} NEXUS DISPATCH — ${p.service.toUpperCase()}\n\nIncident: ${p.incidentType}\nSeverity: ${p.severity.toUpperCase()}\nUnits needed: ${p.unitsNeeded}\n📍 ${mapsUrl}\nRef: ${p.incidentId.slice(0, 8)}\n\nRespond immediately. NEXUS Crisis System.`;
+  const waText  = `${emoji} Maestro DISPATCH — ${p.service.toUpperCase()}\n\nIncident: ${p.incidentType}\nSeverity: ${p.severity.toUpperCase()}\nUnits needed: ${p.unitsNeeded}\n📍 ${mapsUrl}\nRef: ${p.incidentId.slice(0, 8)}\n\nRespond immediately. Maestro Crisis System.`;
 
   const emailHtml = buildEmailHtml({
     title:      `Dispatch Order — ${p.service.toUpperCase()}`,
@@ -209,13 +209,13 @@ export async function sendDispatchAlert(p: DispatchPayload) {
       { label: 'Units',    value: String(p.unitsNeeded) },
       { label: 'Ref',      value: p.incidentId.slice(0, 8) },
     ],
-    footer:  'Automated dispatch from NEXUS Crisis Orchestrator.',
+    footer:  'Automated dispatch from Maestro Crisis Orchestrator.',
     mapsUrl,
   });
 
   const results = await Promise.allSettled([
     p.phone ? sendWhatsApp(p.phone, waText) : Promise.resolve(false),
-    p.email ? sendEmail(p.email, `${emoji} NEXUS Dispatch — ${p.service}`, emailHtml) : Promise.resolve(false),
+    p.email ? sendEmail(p.email, `${emoji} Maestro Dispatch — ${p.service}`, emailHtml) : Promise.resolve(false),
   ]);
 
   return {

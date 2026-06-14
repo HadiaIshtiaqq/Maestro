@@ -171,7 +171,7 @@ export default function IntelligenceView({
         {GMAPS_KEY ? (
           <APIProvider apiKey={GMAPS_KEY}>
             <Map
-              mapId="nexus-intelligence"
+              mapId="maestro-intelligence"
               defaultCenter={{ lat: 24.8607, lng: 67.0011 }}
               defaultZoom={12}
               disableDefaultUI

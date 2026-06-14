@@ -1,5 +1,5 @@
 // ─── Enterprise Resource Pool ─────────────────────────────────────────────────
-// On-call headcount available to NEXUS for incident response.
+// On-call headcount available to Maestro for incident response.
 // Adjust these to demonstrate resource contention in the stress-test scenario.
 
 export const RESOURCE_POOL = {

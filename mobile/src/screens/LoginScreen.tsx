@@ -31,7 +31,7 @@ export default function LoginScreen({ navigation }: any) {
           </TouchableOpacity>
 
           <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.sub}>Sign in to NEXUS to view crisis alerts in your area</Text>
+          <Text style={styles.sub}>Sign in to Maestro to view crisis alerts in your area</Text>
 
           <View style={styles.form}>
             <View style={styles.fieldWrap}>
@@ -49,7 +49,7 @@ export default function LoginScreen({ navigation }: any) {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.link} onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.linkText}>New to NEXUS? <Text style={{ color: COLORS.primary }}>Create Account</Text></Text>
+            <Text style={styles.linkText}>New to Maestro? <Text style={{ color: COLORS.primary }}>Create Account</Text></Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

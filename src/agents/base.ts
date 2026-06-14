@@ -1,15 +1,15 @@
 import { BandMessage, IBandAdapter, MsgType } from "../band/types";
 import type { AgentTask } from "./AntigravityCore";
 
-// ─── NexusAgent base ──────────────────────────────────────────────────────────
-// Every NEXUS agent extends this. The Band connection is identical for all;
+// ─── MaestroAgent base ──────────────────────────────────────────────────────────
+// Every Maestro agent extends this. The Band connection is identical for all;
 // only think() and shouldAct() are role-specific.
 //
 // In the real Band SDK: constructor receives AgentConfig(agent_id, api_key)
 // from config/agents.yaml and calls new Agent(config). This file is the
 // isolation layer — swap the IBandAdapter impl without touching agent logic.
 
-export abstract class NexusAgent {
+export abstract class MaestroAgent {
   constructor(
     protected role:    string,
     protected agentId: string,
@@ -50,16 +50,16 @@ export abstract class NexusAgent {
 }
 
 // ─── CommanderTriageAgent ─────────────────────────────────────────────────────
-// Concrete NexusAgent. Runs between Phase 1 (intel) and Phase 2 (response).
+// Concrete MaestroAgent. Runs between Phase 1 (intel) and Phase 2 (response).
 // Evaluates SEV and posts a status message listing the agents being recruited.
-// Demonstrates the NexusAgent base-class pattern with Band-native message flow.
+// Demonstrates the MaestroAgent base-class pattern with Band-native message flow.
 
 const PHASE_2_ALL   = ['responder-allocation', 'dependency-impact-sim', 'mitigation-projection', 'runbook-advisor'];
 const PHASE_2_LIGHT = ['responder-allocation', 'runbook-advisor'];
 
-export class CommanderTriageAgent extends NexusAgent {
+export class CommanderTriageAgent extends MaestroAgent {
   constructor(band: IBandAdapter) {
-    super('incident-commander', 'nexus-commander-triage', band);
+    super('incident-commander', 'maestro-commander-triage', band);
   }
 
   shouldAct(msg: BandMessage): boolean {

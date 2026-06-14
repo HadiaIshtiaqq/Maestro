@@ -1,5 +1,5 @@
 import { Incident, Signal, ISignal, BandRoom as BandRoomModel, AgentMessage } from "../models/index";
-import { nexusOrchestrator } from "../agents/ciroAgents";
+import { maestroOrchestrator } from "../agents/ciroAgents";
 import { resourceManager }   from "./resourceManager";
 import { eventBus }          from "../events/eventBus";
 import { notifyUsersNearIncident } from "./alertService";
@@ -219,7 +219,7 @@ export class IncidentService {
     };
 
     // 4. PHASE 1 — core intelligence; each finding is posted to Band in real-time
-    const phase1Trace = await nexusOrchestrator.runPipeline(
+    const phase1Trace = await maestroOrchestrator.runPipeline(
       taskId, initialTask, PHASE_1, makeBandHook(room.room_id, incidentId)
     );
 
@@ -231,7 +231,7 @@ export class IncidentService {
 
     const phase1Context = Object.fromEntries(phase1Trace.results.map(r => [r.agentId, r.output]));
 
-    // 5. CommanderTriage (NexusAgent) — evaluates SEV, decides which Phase-2 agents to recruit
+    // 5. CommanderTriage (MaestroAgent) — evaluates SEV, decides which Phase-2 agents to recruit
     const triageAgent   = new CommanderTriageAgent(bandAdapter);
     const triggerMsg    = buildTriggerMsg(incidentId, room.room_id, { ...initialTask, context: phase1Context });
     const triageMsg     = await triageAgent.run(room.room_id, triggerMsg, phase1Context);
@@ -250,14 +250,14 @@ export class IncidentService {
       context: { ...initialTask.context, ...phase1Context },
     };
 
-    const phase2Trace = await nexusOrchestrator.runPipeline(
+    const phase2Trace = await maestroOrchestrator.runPipeline(
       `${taskId}-p2`, phase2Task, phase2Agents, makeBandHook(room.room_id, incidentId)
     );
 
     const phase2Context = Object.fromEntries(phase2Trace.results.map(r => [r.agentId, r.output]));
 
     // 8. Final Commander synthesis — runs outside the pipeline so we can post as approval_request
-    const cmdAgent = nexusOrchestrator.getAgent('incident-commander');
+    const cmdAgent = maestroOrchestrator.getAgent('incident-commander');
     if (!cmdAgent) {
       await Incident.findOneAndUpdate({ incidentId }, { status: 'retracted' });
       return { signal, error: 'incident-commander not registered' };
@@ -373,7 +373,7 @@ export class IncidentService {
           if (decision === 'approved') {
             // Run Stakeholder-Comms AFTER human approval (gated for high-stakes comms)
             const commsTask = { ...cmdTask, context: { ...allContext, 'incident-commander': cmdOutput } };
-            const commsTrace = await nexusOrchestrator.runPipeline(
+            const commsTrace = await maestroOrchestrator.runPipeline(
               `${taskId}-comms`, commsTask, ['stakeholder-comms'],
               makeBandHook(room.room_id, incidentId)
             );
@@ -423,13 +423,13 @@ export class IncidentService {
             eventBus.emit('resources:updated', resourceManager.getStatus());
           }
         } catch (err) {
-          console.error('[NEXUS] Approval gate watcher failed:', err);
+          console.error('[Maestro] Approval gate watcher failed:', err);
         }
       });
     } else {
       // No approval required — run comms immediately
       const commsTask = { ...cmdTask, context: { ...allContext, 'incident-commander': cmdOutput } };
-      const commsTrace = await nexusOrchestrator.runPipeline(
+      const commsTrace = await maestroOrchestrator.runPipeline(
         `${taskId}-comms`, commsTask, ['stakeholder-comms'],
         makeBandHook(room.room_id, incidentId)
       );
@@ -482,7 +482,7 @@ export class IncidentService {
     setImmediate(async () => {
       try {
         const resourceSnapshot = resourceManager.getStatus();
-        const phase1Trace = await nexusOrchestrator.runPipeline(taskId, {
+        const phase1Trace = await maestroOrchestrator.runPipeline(taskId, {
           id:   taskId,
           type: 'signal_ingestion',
           data: signal.toObject(),
@@ -552,7 +552,7 @@ export class IncidentService {
         eventBus.emit('resources:updated', resourceManager.getStatus());
         notifyUsersNearIncident(updatedIncident as any).catch(console.error);
       } catch (err) {
-        console.error('[NEXUS] Manual report pipeline failed:', err);
+        console.error('[Maestro] Manual report pipeline failed:', err);
         await Incident.findOneAndUpdate({ incidentId }, { status: 'retracted' }).catch(() => {});
         eventBus.emit('incident:retracted', { incidentId });
       }
@@ -589,7 +589,7 @@ export class IncidentService {
     if (!incident) return null;
 
     const taskId = uuidv4();
-    const trace = await nexusOrchestrator.runPipeline(taskId, {
+    const trace = await maestroOrchestrator.runPipeline(taskId, {
       id:   taskId,
       type: 'incident_verification',
       data: { incident: incident.toObject(), verificationStatus: status, fieldReport: fieldReport ?? null },

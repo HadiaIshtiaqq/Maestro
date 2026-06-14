@@ -1,5 +1,5 @@
 /**
- * NEXUS seed script — populates MongoDB with realistic mock signals covering:
+ * Maestro seed script — populates MongoDB with realistic mock signals covering:
  *   • Multi-source fusion demo (social + weather + traffic for same flood)
  *   • Conflict resolution demo (social says flood; sensor says dry → field_verification)
  *   • Heatwave cluster for stress-test scenario

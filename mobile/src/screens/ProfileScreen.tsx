@@ -96,7 +96,7 @@ export default function ProfileScreen({ navigation }: any) {
         {/* Info */}
         <View style={styles.infoCard}>
           <Text style={styles.infoText}>
-            🤖 NEXUS AI agents verify every reported incident using social media, news, weather, and maps.
+            🤖 Maestro AI agents verify every reported incident using social media, news, weather, and maps.
             You receive alerts only within your set radius. Emergency contacts are notified automatically for high-severity incidents.
           </Text>
         </View>

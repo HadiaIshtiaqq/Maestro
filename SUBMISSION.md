@@ -1,4 +1,4 @@
-# NEXUS — lablab.ai Submission Package
+# Maestro — lablab.ai Submission Package
 
 Band of Agents Hackathon · Track 3 (Regulated & High-Stakes Workflows)
 Fill these into the lablab.ai submission form. Everything here is grounded in
@@ -7,7 +7,7 @@ what the code actually does (verified in live runs) — no claims the demo can't
 ---
 
 ## Project Title
-**NEXUS — Governed Multi-Agent Incident Response, Coordinated Through Band**
+**Maestro — Governed Multi-Agent Incident Response, Coordinated Through Band**
 
 ## Short Description (one line)
 A band of 11 specialized agents and a human commander triage, investigate, and
@@ -20,7 +20,7 @@ or outage pulls in correlation, validation, severity, allocation, mitigation, an
 communications specialists, all coordinating under time pressure while a human
 commander stays accountable for irreversible actions.
 
-NEXUS runs this as a multi-agent system where **Band is the coordination layer**,
+Maestro runs this as a multi-agent system where **Band is the coordination layer**,
 not a notification afterthought. Every incident opens a per-incident Band room.
 Agents join, post structured findings, and hand off context through the room:
 Intake → Correlation/Dedup → Validation → Classification → Severity. The Incident
@@ -57,7 +57,7 @@ What makes it Track-3-grade:
 > approval → audit export, end-to-end in ~90s.
 
 1. **The problem (0:00–0:25).** "When a ransomware alert fires, a dozen
-   specialists scramble. NEXUS runs that response as a band of agents coordinating
+   specialists scramble. Maestro runs that response as a band of agents coordinating
    through Band — with a human commander accountable for every irreversible move."
 
 2. **Signal → room opens (0:25–0:55).** POST the ransomware signal. Cut to the

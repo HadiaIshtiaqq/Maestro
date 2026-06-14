@@ -106,7 +106,7 @@ export default function DashboardScreen({ navigation }: Props) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={COLORS.primary} size="large" />
-        <Text style={styles.loadText}>Connecting to NEXUS…</Text>
+        <Text style={styles.loadText}>Connecting to Maestro…</Text>
       </View>
     );
   }
@@ -120,8 +120,8 @@ export default function DashboardScreen({ navigation }: Props) {
         <View style={styles.topBarLeft}>
           <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
           <View>
-            <Text style={styles.nexusLabel}>NEXUS</Text>
-            <Text style={styles.nexusSub}>Crisis Intelligence</Text>
+            <Text style={styles.maestroLabel}>Maestro</Text>
+            <Text style={styles.maestroSub}>Crisis Intelligence</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.reportBtn} onPress={() => navigation.navigate('Report')}>
@@ -269,8 +269,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary + '20',
     borderWidth: 1.5, borderColor: COLORS.primary + '60',
   },
-  nexusLabel: { color: COLORS.primary, fontSize: 16, fontWeight: '900', letterSpacing: 3 },
-  nexusSub: { color: COLORS.muted, fontSize: 8, letterSpacing: 1, marginTop: 1 },
+  maestroLabel: { color: COLORS.primary, fontSize: 16, fontWeight: '900', letterSpacing: 3 },
+  maestroSub: { color: COLORS.muted, fontSize: 8, letterSpacing: 1, marginTop: 1 },
   reportBtn: {
     backgroundColor: COLORS.primary, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 8,

@@ -1,5 +1,5 @@
 /**
- * NEXUS Hackathon Demo Scenario — Challenge 3: Crisis Intelligence & Response Orchestrator
+ * Maestro Hackathon Demo Scenario — Challenge 3: Crisis Intelligence & Response Orchestrator
  *
  * EXACT scenario from challenge requirements:
  *   Crisis 1 — G-10 Urban Flood (t=0 min)
@@ -57,7 +57,7 @@ function printTrace(traceLog: any[]) {
 
 async function runScenario() {
   console.log("\n╔══════════════════════════════════════════════════════════════════╗");
-  console.log("║  NEXUS — Challenge 3 Demo: Crisis Intelligence & Orchestration     ║");
+  console.log("║  Maestro — Challenge 3 Demo: Crisis Intelligence & Orchestration     ║");
   console.log("║  G-10 Sector Flood  +  Bari Imam Heat Emergency (Islamabad)       ║");
   console.log("╚══════════════════════════════════════════════════════════════════╝");
 

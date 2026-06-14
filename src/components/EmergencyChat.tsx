@@ -36,7 +36,7 @@ export default function EmergencyChat({ alert }: EmergencyChatProps) {
         {
           id: "welcome",
           role: "assistant",
-          content: `System Nexus AI standby. I have context on the ${alert.severity} alert: "${alert.description}". How can I assist with tactical orchestration?`,
+          content: `System Maestro AI standby. I have context on the ${alert.severity} alert: "${alert.description}". How can I assist with tactical orchestration?`,
           timestamp: new Date(),
         },
       ]);
@@ -93,7 +93,7 @@ export default function EmergencyChat({ alert }: EmergencyChatProps) {
                   <Bot className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold tracking-tight text-on-surface">Nexus Command AI</h3>
+                  <h3 className="text-sm font-bold tracking-tight text-on-surface">Maestro Command AI</h3>
                   <p className="text-[9px] uppercase tracking-[0.2em] text-primary font-bold">Active Tactical Link</p>
                 </div>
               </div>

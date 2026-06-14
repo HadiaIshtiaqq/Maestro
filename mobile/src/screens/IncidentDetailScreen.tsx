@@ -332,7 +332,7 @@ export default function IncidentDetailScreen({ route, navigation }: any) {
               {
                 title: '📢 PUBLIC ALERT SMS',
                 color: COLORS.error,
-                body: `NEXUS ALERT: ${incident.type?.toUpperCase()} reported in ${incident.metadata?.area ?? 'your area'}. ${incident.severity === 'critical' ? 'EVACUATE IMMEDIATELY.' : 'Avoid the area.'} Emergency services en route. Stay tuned for updates. — NEXUS Crisis Platform`,
+                body: `Maestro ALERT: ${incident.type?.toUpperCase()} reported in ${incident.metadata?.area ?? 'your area'}. ${incident.severity === 'critical' ? 'EVACUATE IMMEDIATELY.' : 'Avoid the area.'} Emergency services en route. Stay tuned for updates. — Maestro Crisis Platform`,
               },
               {
                 title: '🏥 HOSPITAL NOTIFICATION',
@@ -342,12 +342,12 @@ export default function IncidentDetailScreen({ route, navigation }: any) {
               {
                 title: '🚔 POLICE DISPATCH ORDER',
                 color: COLORS.primary,
-                body: `DISPATCH ORDER — ${incident.allocatedResources?.police ?? 0} units required. Incident: ${incident.type}. Area: ${incident.metadata?.area ?? 'Karachi'}. Status: ${incident.status?.toUpperCase()}. Report to incident commander on arrival. NEXUS ID: ${incident.incidentId?.slice(0, 8).toUpperCase()}`,
+                body: `DISPATCH ORDER — ${incident.allocatedResources?.police ?? 0} units required. Incident: ${incident.type}. Area: ${incident.metadata?.area ?? 'Karachi'}. Status: ${incident.status?.toUpperCase()}. Report to incident commander on arrival. Maestro ID: ${incident.incidentId?.slice(0, 8).toUpperCase()}`,
               },
               {
                 title: '📰 MEDIA STATEMENT',
                 color: COLORS.muted,
-                body: `NEXUS Crisis Platform has detected a ${incident.severity} ${incident.type?.toLowerCase()} incident in ${incident.metadata?.area ?? 'Karachi'}. Emergency response is active. Resources deployed: ${Object.entries(incident.allocatedResources ?? {}).filter(([,v]) => (v as number) > 0).map(([k,v]) => `${v} ${k}`).join(', ') || 'pending'}. Updates will follow.`,
+                body: `Maestro Crisis Platform has detected a ${incident.severity} ${incident.type?.toLowerCase()} incident in ${incident.metadata?.area ?? 'Karachi'}. Emergency response is active. Resources deployed: ${Object.entries(incident.allocatedResources ?? {}).filter(([,v]) => (v as number) > 0).map(([k,v]) => `${v} ${k}`).join(', ') || 'pending'}. Updates will follow.`,
               },
             ].map(msg => (
               <View key={msg.title} style={[styles.msgCard, { borderLeftColor: msg.color }]}>

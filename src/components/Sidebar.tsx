@@ -48,7 +48,7 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen, in
         <div className="p-8 flex justify-between items-start">
           <div>
             <div className="font-light text-2xl tracking-tighter text-on-surface mb-1">
-              <span className="font-bold text-primary">NEXUS</span>
+              <span className="font-bold text-primary">Maestro</span>
             </div>
             <div className="text-[10px] text-on-surface-variant font-bold uppercase tracking-[0.3em] opacity-60">
               {incidentCount > 0 ? `${incidentCount} Active · ${criticalCount} Critical` : "All Systems Clear"}

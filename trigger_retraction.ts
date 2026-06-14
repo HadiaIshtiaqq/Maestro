@@ -1,5 +1,5 @@
 /**
- * NEXUS — False Alarm Retraction Demo Script
+ * Maestro — False Alarm Retraction Demo Script
  *
  * Demonstrates the complete false-positive recovery pipeline:
  *   T+0s  — Inject flood signal → incident created (status: active, public SMS logged)
@@ -54,7 +54,7 @@ function printTrace(results: any[]) {
 
 async function runRetraction() {
   console.log("\n╔════════════════════════════════════════════════════════════════════════╗");
-  console.log("║  NEXUS — FALSE ALARM RETRACTION DEMO                                    ║");
+  console.log("║  Maestro — FALSE ALARM RETRACTION DEMO                                    ║");
   console.log("║  G-10 Flood Signal → Field Contradiction → RETRACTED                    ║");
   console.log("╚════════════════════════════════════════════════════════════════════════╝");
 
@@ -105,12 +105,12 @@ async function runRetraction() {
 
   // ── Phase 2: Field contradicts flood classification ────────────────────────
   divider("PHASE 2 — T+3s | FIELD UNIT REPORT CONTRADICTS CLASSIFICATION");
-  console.log("  Waiting 3 seconds for field unit NEXUS-07 to report in...\n");
+  console.log("  Waiting 3 seconds for field unit Maestro-07 to report in...\n");
   await sleep(3000);
 
   const fieldReport = {
     source: "field" as const,
-    officer: "Field Unit NEXUS-07",
+    officer: "Field Unit Maestro-07",
     timestamp: new Date().toISOString(),
     report: "water main burst only, no flooding — residential streets dry, no standing water, no evacuation required",
     coordinates: { lat: 33.6938, lng: 73.0541 },

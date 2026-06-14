@@ -57,7 +57,7 @@ export default function CommandMap({ incidents, selectedId, onSelect }: Props) {
       {GMAPS_KEY ? (
         <APIProvider apiKey={GMAPS_KEY}>
           <Map
-            mapId="nexus-cmd"
+            mapId="maestro-cmd"
             defaultCenter={center}
             defaultZoom={11}
             disableDefaultUI

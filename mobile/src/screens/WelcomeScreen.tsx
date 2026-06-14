@@ -75,7 +75,7 @@ export default function WelcomeScreen({ navigation }: any) {
               <Text style={styles.logoEmoji}>🛰️</Text>
             </View>
           </View>
-          <Animated.Text style={[styles.appName, { opacity: titleOpacity }]}>NEXUS</Animated.Text>
+          <Animated.Text style={[styles.appName, { opacity: titleOpacity }]}>Maestro</Animated.Text>
           <Animated.Text style={[styles.tagline, { opacity: titleOpacity }]}>
             Crisis Intelligence{'\n'}& Response Network
           </Animated.Text>

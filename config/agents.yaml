@@ -1,4 +1,4 @@
-# NEXUS Agent Credentials
+# Maestro Agent Credentials
 # Fill in agent_id (UUID from Band agent details page) and api_key (shown at creation).
 # One block per agent role. These are injected into each Docker service via env vars.
 # See docker-compose.yml for the mapping.

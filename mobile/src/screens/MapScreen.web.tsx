@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { COLORS } from '../theme';
 
 // Web fallback: react-native-maps is not supported on web.
-// The full Google Maps experience is in the NEXUS web dashboard at localhost:3000.
+// The full Google Maps experience is in the Maestro web dashboard at localhost:3000.
 export default function MapScreen() {
   return (
     <View style={styles.container}>
@@ -11,7 +11,7 @@ export default function MapScreen() {
       <Text style={styles.title}>Map View</Text>
       <Text style={styles.sub}>
         The interactive map with live incident markers is available in the{'\n'}
-        <Text style={styles.highlight}>NEXUS Web Dashboard</Text>
+        <Text style={styles.highlight}>Maestro Web Dashboard</Text>
         {'\n'}Open your browser at{' '}
         <Text style={styles.highlight}>http://localhost:3000</Text>
       </Text>

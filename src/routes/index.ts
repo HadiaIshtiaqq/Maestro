@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { IncidentService } from "../services/incidentService";
 import { seedDemoIncidents } from "../scripts/seedDemoData";
-import { nexusOrchestrator } from "../agents/ciroAgents";
+import { maestroOrchestrator } from "../agents/ciroAgents";
 import { resourceManager } from "../services/resourceManager";
 import { ActionSimulator } from "../simulations/actionSimulator";
 import { fetchAllLiveData, fetchGDACS, fetchKarachiWeather, fetchUSGSEarthquakes } from "../services/realDataService";
@@ -687,8 +687,8 @@ router.post("/simulate/world-cup", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get("/agents/status", async (req, res) => {
-  const traces    = nexusOrchestrator.getAllTraces();
-  const persisted = await nexusOrchestrator.getPersistedTraces(5).catch(() => []);
+  const traces    = maestroOrchestrator.getAllTraces();
+  const persisted = await maestroOrchestrator.getPersistedTraces(5).catch(() => []);
   res.json({
     status:          "all agents operational",
     agentCount:      11,
@@ -702,13 +702,13 @@ router.get("/agents/status", async (req, res) => {
 router.get("/traces/all", async (req, res) => {
   try {
     const limit  = parseInt(req.query.limit as string || "50");
-    const traces = await nexusOrchestrator.getPersistedTraces(limit);
+    const traces = await maestroOrchestrator.getPersistedTraces(limit);
     res.json({ count: traces.length, traces });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.get("/traces/:taskId", (req, res) => {
-  const trace = nexusOrchestrator.getTrace(req.params.taskId);
+  const trace = maestroOrchestrator.getTrace(req.params.taskId);
   if (!trace) return res.status(404).json({ error: "Trace not found" });
   res.json(trace);
 });

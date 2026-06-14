@@ -172,11 +172,11 @@ async function startServer() {
   }
 
   server.listen(config.port, "0.0.0.0", () => {
-    console.log(`[NEXUS] Server running on http://localhost:${config.port} [${config.env}]`);
+    console.log(`[Maestro] Server running on http://localhost:${config.port} [${config.env}]`);
   });
 }
 
 startServer().catch(err => {
-  console.error("[NEXUS] Failed to start server:", err);
+  console.error("[Maestro] Failed to start server:", err);
   process.exit(1);
 });
