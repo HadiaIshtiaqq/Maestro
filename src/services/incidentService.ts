@@ -3,8 +3,8 @@ import { maestroOrchestrator } from "../agents/ciroAgents";
 import { resourceManager }   from "./resourceManager";
 import { eventBus }          from "../events/eventBus";
 import { notifyUsersNearIncident } from "./alertService";
-import { bandAdapter }        from "../band/adapter";
-import { createApprovalGate } from "./approvalService";
+import { bandAdapter, BandSdkAdapter } from "../band/adapter";
+import { createApprovalGate, submitDecision, isPending } from "./approvalService";
 import { BandMessage }        from "../band/types";
 import { AgentTask, AgentResult } from "../agents/AntigravityCore";
 import { CommanderTriageAgent, buildTriggerMsg } from "../agents/base";
@@ -96,6 +96,28 @@ async function notifyReallocations(
       console.warn(`[Resources] Reallocation notice failed for ${r.fromIncidentId}:`, err.message);
     }
   }
+}
+
+// Close the approval loop THROUGH Band: poll the real Band chat for the human's
+// reply and release the gate on it. This is what makes Band the coordination
+// layer for the decision (not just a mirror) — the human acts inside Band, and
+// Maestro reacts to that Band message. No-ops when the mock adapter is active.
+function startBandApprovalPoll(roomId: string, proposalMsgId: string, incidentId: string) {
+  if (!(bandAdapter instanceof BandSdkAdapter) || !bandAdapter.isLive()) return;
+  const startedAt = new Date().toISOString();
+  console.log(`[Band] Watching chat for human decision on ${incidentId.slice(0, 8)} (reply "approve"/"veto" in Band)`);
+  const interval = setInterval(async () => {
+    if (!isPending(proposalMsgId)) { clearInterval(interval); return; }  // resolved elsewhere
+    try {
+      const d = await (bandAdapter as BandSdkAdapter).getRemoteDecision(roomId, startedAt);
+      if (d) {
+        clearInterval(interval);
+        console.log(`[Band] Human ${d.decision} via Band ("${d.notes}") — releasing gate`);
+        await submitDecision(proposalMsgId, d.decision, `${d.by} (via Band)`, d.notes);
+      }
+    } catch { /* transient — keep polling */ }
+  }, 5000);
+  setTimeout(() => clearInterval(interval), 5 * 60 * 1000 + 10_000);  // stop after gate timeout
 }
 
 // Band posting callback — passed to each pipeline phase so findings appear live
@@ -368,6 +390,9 @@ export class IncidentService {
     if (requiresApproval) {
       setImmediate(async () => {
         try {
+          // The human can decide IN Band (poll) or via the operator UI — whichever
+          // fires first releases the same gate.
+          startBandApprovalPoll(room.room_id, cmdMsg.id, incidentId);
           const decision = await createApprovalGate(cmdMsg.id, room.room_id, incidentId);
 
           if (decision === 'approved') {

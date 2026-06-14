@@ -30,6 +30,36 @@ router.use("/operator", operatorAuth);
 router.use("/band/approve", operatorAuth);
 router.use("/band/veto", operatorAuth);
 router.use("/seed-demo", operatorAuth);
+router.use("/admin", operatorAuth);
+
+/**
+ * POST /api/admin/reset-demo
+ * Clears all incidents/signals/Band rooms/messages/approvals so a demo
+ * recording starts from a clean board. Operator-key gated.
+ */
+router.post("/admin/reset-demo", async (_req, res) => {
+  try {
+    const { Incident, Signal, AgentMessage, BandRoom: BandRoomModel, Approval, DispatchLog } = await import("../models/index");
+    const [inc, sig, msg, rooms, appr, disp] = await Promise.all([
+      Incident.deleteMany({}),
+      Signal.deleteMany({}),
+      AgentMessage.deleteMany({}),
+      BandRoomModel.deleteMany({}),
+      Approval.deleteMany({}),
+      DispatchLog.deleteMany({}),
+    ]);
+    (bandAdapter as any).clearLocal?.();
+    resourceManager.getStatus().activeIncidents.forEach((a: any) => resourceManager.release(a.incidentId));
+    eventBus.emit("resources:updated", resourceManager.getStatus());
+    res.json({
+      ok: true,
+      cleared: {
+        incidents: inc.deletedCount, signals: sig.deletedCount, bandMessages: msg.deletedCount,
+        rooms: rooms.deletedCount, approvals: appr.deletedCount, dispatches: disp.deletedCount,
+      },
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
 
 // LLM-backed endpoints: each call is expensive — cap per IP per minute
 router.use("/ingest-signal", rateLimit(10));

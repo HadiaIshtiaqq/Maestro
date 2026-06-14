@@ -19,6 +19,16 @@ export function hashMessage(msg: BandMessage, prevHash: string): string {
   return createHash("sha256").update(canonical).digest("hex");
 }
 
+// Parse a human's free-text Band reply into an approval decision. This is how
+// the coordination loop closes THROUGH Band: the human types a reply in the
+// Band chat, Maestro reads it back and releases the gate on it.
+export function parseDecision(text: string): 'approved' | 'vetoed' | null {
+  const t = (text || "").toLowerCase();
+  if (/\b(veto|reject|rejected|deny|denied|decline|declined|abort|stop|do ?not|don'?t)\b/.test(t)) return 'vetoed';
+  if (/\b(approve|approved|approval|lgtm|proceed|go ahead|authori[sz]e[d]?|confirm(ed)?|ok|yes)\b/.test(t)) return 'approved';
+  return null;
+}
+
 // Verify a room's audit chain. Returns the first break, or null if intact.
 export function verifyChain(messages: BandMessage[]): { ok: boolean; brokenAt?: number } {
   let prev = "GENESIS";
@@ -167,6 +177,14 @@ export class MockBandAdapter extends EventEmitter implements IBandAdapter {
     return () => this.roomListeners.get(roomId)?.delete(handler);
   }
 
+  // Wipe the in-memory room/message store (used by the demo-reset endpoint so a
+  // recording starts from an empty board without a server restart).
+  clearLocal(): void {
+    this.rooms.clear();
+    this.messages.clear();
+    this.roomListeners.clear();
+  }
+
   // ── hydrateFromDb ───────────────────────────────────────────────────────────
   // Restores rooms + message logs persisted in MongoDB into the in-memory store
   // so Band rooms survive a server restart. Called once at boot (server.ts).
@@ -240,6 +258,53 @@ export class BandSdkAdapter extends MockBandAdapter {
     return res.status === 204 ? null : res.json();
   }
 
+  // Is this adapter wired to the real Band platform?
+  isLive(): boolean { return !!this.apiKey; }
+
+  // Decision messages (approval_request/proposal) ping the human so they act in
+  // Band; everything else mentions the peer agent.
+  private mentionFor(msgType: string): string {
+    const human = process.env.BAND_HUMAN_ID;
+    return (msgType === "approval_request" || msgType === "proposal") && human
+      ? human
+      : this.mentionId;
+  }
+
+  // Read the human's decision back FROM Band — closes the coordination loop
+  // through the platform. Returns a decision once the human replies in the chat.
+  async getRemoteDecision(
+    roomId: string,
+    afterIso: string
+  ): Promise<{ decision: "approved" | "vetoed"; notes: string; by: string } | null> {
+    const chatId = this.chatIds.get(roomId);
+    if (!chatId) return null;
+    let resp: any;
+    try {
+      resp = await this.api("GET", `/chats/${chatId}/messages`);
+    } catch {
+      return null;
+    }
+    const msgs: any[] = resp?.data ?? [];
+    const after = new Date(afterIso).getTime();
+    // By default only the human commander can release the gate. Optionally a
+    // peer reviewer agent may too (pure agent-to-agent mode for demos).
+    const allowAgent = process.env.BAND_ALLOW_AGENT_APPROVAL === "true";
+    // Oldest-first so the first decision wins.
+    const ordered = [...msgs].sort(
+      (a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime()
+    );
+    for (const m of ordered) {
+      const authorized = m.sender_type === "User" || (allowAgent && m.sender_type === "Agent");
+      if (!authorized) continue;
+      if (new Date(m.inserted_at).getTime() <= after) continue; // only replies after the request
+      const decision = parseDecision(m.content ?? "");
+      if (decision) {
+        return { decision, notes: (m.content ?? "").slice(0, 200), by: m.sender_name ?? "human" };
+      }
+    }
+    return null;
+  }
+
   // Render a structured Maestro envelope into a readable Band message body.
   private renderContent(message: Omit<BandMessage, "id" | "room_id" | "ts">): string {
     const tag = message.msg_type.toUpperCase();
@@ -286,13 +351,18 @@ export class BandSdkAdapter extends MockBandAdapter {
     // Local store first — preserves authority enforcement, audit mirror, UI.
     const msg = await super.post(roomId, message);
     const chatId = this.chatIds.get(roomId);
-    if (chatId && this.mentionId) {
+    const mention = this.mentionFor(message.msg_type);
+    if (chatId && mention) {
       // Awaited so failures surface and post ordering is preserved.
       try {
+        let content = this.renderContent(message);
+        if (message.msg_type === "approval_request") {
+          content += `\n\n⛔ HUMAN COMMANDER: reply in this chat with "approve" or "veto" to release the gate.`;
+        }
         await this.api("POST", `/chats/${chatId}/messages`, {
           message: {
-            content:  this.renderContent(message),
-            mentions: [{ id: this.mentionId }],   // must be another participant
+            content,
+            mentions: [{ id: mention }],   // must be another participant
           },
         });
         console.log(`[Band] → posted ${message.msg_type} from ${message.from_agent} to chat ${chatId.slice(0, 8)}`);

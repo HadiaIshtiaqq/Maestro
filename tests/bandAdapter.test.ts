@@ -1,6 +1,22 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { MockBandAdapter, verifyChain } from "../src/band/adapter";
+import { MockBandAdapter, verifyChain, parseDecision } from "../src/band/adapter";
 import { BandMessage } from "../src/band/types";
+
+describe("parseDecision (human's Band reply → gate decision)", () => {
+  it("reads approvals", () => {
+    for (const s of ["approve", "Approved", "lgtm", "go ahead", "yes proceed", "authorize it"])
+      expect(parseDecision(s)).toBe("approved");
+  });
+  it("reads vetoes (and veto wins over approve words)", () => {
+    for (const s of ["veto", "reject this", "deny", "do not proceed", "abort"])
+      expect(parseDecision(s)).toBe("vetoed");
+    expect(parseDecision("do not approve")).toBe("vetoed");
+  });
+  it("returns null for unrelated chatter", () => {
+    expect(parseDecision("what's the blast radius?")).toBeNull();
+    expect(parseDecision("")).toBeNull();
+  });
+});
 
 function findingFrom(agent: string, incidentId = "inc-1") {
   return {

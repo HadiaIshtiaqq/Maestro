@@ -125,3 +125,7 @@ export function getPendingApprovals(): Array<{
     proposalMsgId, roomId, incidentId,
   }));
 }
+
+export function isPending(proposalMsgId: string): boolean {
+  return pending.has(proposalMsgId);
+}
