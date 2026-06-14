@@ -71,11 +71,12 @@ async function callGemini(prompt: string, jsonResponse: boolean, attempt: number
   }
 }
 
-// ── Secondary engine: AI/ML API (OpenAI-compatible) ──────────────────────────
-// Used when Gemini is unavailable (quota/outage) and AIML_API_KEY is set.
-// Results carry __engine so agents attribute the framework honestly.
+// ── AI/ML API engine (OpenAI-compatible) ─────────────────────────────────────
+// Serves as either the PRIMARY engine (PRIMARY_LLM=aiml) or the automatic
+// fallback when Gemini is unavailable. Results carry __engine so every agent
+// attributes the framework that actually ran.
 
-async function askAimlFallback(prompt: string, jsonResponse: boolean): Promise<any | null> {
+async function askAiml(prompt: string, jsonResponse: boolean): Promise<any | null> {
   const apiKey = process.env.AIML_API_KEY;
   if (!apiKey) return null;
   const model = process.env.AIML_API_MODEL || "gpt-4o-mini";
@@ -93,13 +94,17 @@ async function askAimlFallback(prompt: string, jsonResponse: boolean): Promise<a
     const clean = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
     const parsed = JSON.parse(clean);
     parsed.__engine = `AI/ML API (${model})`;
-    console.log(`[AI/ML API] Fallback OK via ${model}`);
     return parsed;
   } catch (err: any) {
-    console.warn("[AI/ML API] Fallback failed:", err.message);
+    console.warn("[AI/ML API] Call failed:", err.message);
     return null;
   }
 }
+
+// PRIMARY_LLM=aiml makes AI/ML API the primary engine for every agent (Gemini
+// becomes the fallback). Auto-selected when no Gemini key is configured.
+const PRIMARY_IS_AIML =
+  (process.env.PRIMARY_LLM ?? "").toLowerCase() === "aiml" || !config.gemini.apiKey;
 
 // ── Gemini circuit breaker ───────────────────────────────────────────────────
 // After consecutive total failures (e.g. dead quota), skip Gemini's retry
@@ -113,14 +118,24 @@ const BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 export async function askGemini(prompt: string, jsonResponse: boolean = true): Promise<any> {
-  if (!config.gemini.apiKey) {
-    console.warn("[Gemini] No API key — trying AI/ML API fallback");
-    const aiml = await askAimlFallback(prompt, jsonResponse);
-    return aiml ?? buildFallback(prompt);
+  // Primary = AI/ML API: skip Gemini entirely (full demo speed, no dead-key
+  // retries) and use Gemini only if AI/ML API itself fails.
+  if (PRIMARY_IS_AIML) {
+    const cacheKey = `${jsonResponse}::${createHash("sha256").update(prompt).digest("hex")}`;
+    const cached   = responseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+
+    const aiml = await askAiml(prompt, jsonResponse);
+    if (aiml) {
+      responseCache.set(cacheKey, { result: aiml, expiresAt: Date.now() + CACHE_TTL_MS });
+      return aiml;
+    }
+    // AI/ML API failed — try Gemini if a key exists, else degrade
+    if (!config.gemini.apiKey) return buildFallback(prompt);
   }
 
   if (Date.now() < geminiCooldownUntil) {
-    const aiml = await askAimlFallback(prompt, jsonResponse);
+    const aiml = await askAiml(prompt, jsonResponse);
     if (aiml) return aiml;
     return buildFallback(prompt);
   }
@@ -147,7 +162,7 @@ export async function askGemini(prompt: string, jsonResponse: boolean = true): P
       console.warn(`[Gemini] Circuit breaker OPEN after ${geminiFailStreak} consecutive failures — skipping Gemini for ${BREAKER_COOLDOWN_MS / 60000} min`);
     }
     console.error(`[Gemini] All retries failed (${err.message}) — trying AI/ML API fallback`);
-    const aiml = await askAimlFallback(prompt, jsonResponse);
+    const aiml = await askAiml(prompt, jsonResponse);
     if (aiml) {
       responseCache.set(cacheKey, { result: aiml, expiresAt: Date.now() + CACHE_TTL_MS });
       return aiml;
