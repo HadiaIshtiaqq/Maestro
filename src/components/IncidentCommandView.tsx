@@ -15,18 +15,18 @@ import { operatorFetch } from "../lib/operatorFetch";
 
 function cn(...i: ClassValue[]) { return twMerge(clsx(i)); }
 
-function deriveMode(inc: LiveIncident): "disaster" | "world_cup" | "normal" {
-  const t = (inc.type ?? "").toLowerCase();
-  if (/flood|heatwave|earthquake|hurricane|wildfire|landslide|tsunami|fire|explosion/.test(t)) return "disaster";
-  if (/crowd|venue|event|world.cup|stadium|sport/.test(t)) return "world_cup";
-  return "normal";
+function deriveMode(inc: LiveIncident): "security" | "infrastructure" | "compliance" {
+  const t = `${inc.type ?? ""} ${(inc as any).subType ?? ""} ${(inc as any).metadata?.signalType ?? ""}`.toLowerCase();
+  if (/security|breach|ddos|intrusion|exfil|credential|malware|ransomware|phish/.test(t)) return "security";
+  if (/complian|audit|gdpr|dora|soc2|hipaa|policy|regulat/.test(t)) return "compliance";
+  return "infrastructure";
 }
 
 function deriveControlState(inc: LiveIncident): string {
   const s = inc.status ?? "";
   if (s === "unverified")              return "Unverified";
   if (s === "analyzing" || s === "detected") return "AI Leading";
-  if (s === "active")    return "Active Call";
+  if (s === "active")    return "Active";
   if (s === "resolving") return "Resolving";
   return "AI Active";
 }
@@ -39,11 +39,11 @@ function formatTs(iso: string) {
 }
 
 const MODE_CLS: Record<string, string> = {
-  disaster:  "bg-red-900/70   text-red-300   border-red-800/60",
-  world_cup: "bg-yellow-900/70 text-yellow-300 border-yellow-800/60",
-  normal:    "bg-slate-800/80  text-slate-300  border-slate-700/60",
+  security:       "bg-red-900/70   text-red-300   border-red-800/60",
+  infrastructure: "bg-cyan-900/70  text-cyan-300  border-cyan-800/60",
+  compliance:     "bg-amber-900/70 text-amber-300 border-amber-800/60",
 };
-const MODE_LABEL: Record<string, string> = { disaster: "DISASTER", world_cup: "WORLD CUP", normal: "NORMAL" };
+const MODE_LABEL: Record<string, string> = { security: "SECURITY", infrastructure: "INFRASTRUCTURE", compliance: "COMPLIANCE" };
 
 const SEV_CLS: Record<string, string> = {
   critical: "bg-red-600     text-white",
@@ -88,7 +88,7 @@ export default function IncidentCommandView({ incidents, mode, onRefresh }: Prop
 
   const modeFiltered = useMemo(() => {
     if (mode === "all") return incidents;
-    return incidents.filter(i => deriveMode(i) === mode || mode === "normal" && deriveMode(i) === "normal");
+    return incidents.filter(i => deriveMode(i) === mode);
   }, [incidents, mode]);
 
   const filtered = useMemo(() => modeFiltered.filter(inc => {
@@ -518,12 +518,13 @@ export default function IncidentCommandView({ incidents, mode, onRefresh }: Prop
                       {selected.allocatedResources && (
                         <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-4">
                           <h3 className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-3">Resources Deployed</h3>
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-5 gap-2">
                             {([
-                              { key: "ambulance", label: "AMB",  name: "Ambulance" },
-                              { key: "police",    label: "POL",  name: "Police"    },
-                              { key: "fire",      label: "FIR",  name: "Fire"      },
-                              { key: "drone",     label: "DRN",  name: "Drone"     },
+                              { key: "sre",        label: "SRE", name: "SRE"        },
+                              { key: "seceng",     label: "SEC", name: "SecEng"     },
+                              { key: "dataeng",    label: "DAT", name: "Data Eng"   },
+                              { key: "ic",         label: "IC",  name: "Inc. Cmdr"  },
+                              { key: "compliance", label: "CMP", name: "Compliance" },
                             ] as const).map(({ key, label, name }) => (
                               <div key={key} className="text-center bg-white/5 rounded-lg p-2">
                                 <div className="text-xs font-black text-white/50 mb-1">{label}</div>

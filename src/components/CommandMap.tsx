@@ -50,7 +50,8 @@ export default function CommandMap({ incidents, selectedId, onSelect }: Props) {
   const center = valid.length
     ? { lat: valid.reduce((s, i) => s + i.location.lat, 0) / valid.length,
         lng: valid.reduce((s, i) => s + i.location.lng, 0) / valid.length }
-    : { lat: 33.6844, lng: 73.0479 };
+    : { lat: 25, lng: 10 };
+  const cmdZoom = valid.length <= 1 ? 4 : 2;
 
   return (
     <div className="relative w-full h-full">
@@ -59,7 +60,7 @@ export default function CommandMap({ incidents, selectedId, onSelect }: Props) {
           <Map
             mapId="maestro-cmd"
             defaultCenter={center}
-            defaultZoom={11}
+            defaultZoom={cmdZoom}
             disableDefaultUI
             clickableIcons={false}
             colorScheme="DARK"

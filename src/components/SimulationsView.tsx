@@ -31,13 +31,13 @@ const OPTIMIZED_ROUTE = [
 ];
 
 const AMBULANCE_STATIONS = [
-  { lat: 24.8607, lng: 67.0152, label: "Civil Hospital" },
-  { lat: 24.8820, lng: 67.0180, label: "JPMC" },
-  { lat: 24.8975, lng: 67.0826, label: "Aga Khan Hospital" },
+  { lat: 24.8607, lng: 67.0152, label: "Primary Region" },
+  { lat: 24.8820, lng: 67.0180, label: "Failover Region" },
+  { lat: 24.8975, lng: 67.0826, label: "DR Site" },
 ];
 
-const INCIDENT_CENTER = { lat: 24.9056, lng: 67.0822 };
-const MAP_CENTER = { lat: 24.8830, lng: 67.0487 };
+const INCIDENT_CENTER = { lat: 25, lng: 10 };
+const MAP_CENTER = { lat: 25, lng: 10 };
 
 function AnimatedPolylineRoute({ path, color, animated }: { path: { lat: number; lng: number }[]; color: string; animated?: boolean }) {
   const [dashOffset, setDashOffset] = useState(0);
@@ -269,7 +269,7 @@ export default function SimulationsView({ incidents = [] }: { incidents?: any[] 
                 <Map
                   mapId="sim-congested"
                   center={mapCenter}
-                  zoom={activeIncidents.length ? 13 : 12}
+                  zoom={activeIncidents.length ? 4 : 2}
                   disableDefaultUI
                   gestureHandling="none"
                   colorScheme="DARK"
@@ -344,7 +344,7 @@ export default function SimulationsView({ incidents = [] }: { incidents?: any[] 
                 <Map
                   mapId="sim-optimized"
                   center={mapCenter}
-                  zoom={activeIncidents.length ? 13 : 12}
+                  zoom={activeIncidents.length ? 4 : 2}
                   disableDefaultUI
                   gestureHandling="none"
                   colorScheme="DARK"

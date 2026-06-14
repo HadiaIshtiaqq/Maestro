@@ -26,12 +26,12 @@ const SEV_BG: Record<string, string> = {
 const TYPE_ICON = (type: string) => {
   if (!type) return "⚠️";
   const t = type.toLowerCase();
-  if (t.includes("flood"))    return "🌊";
-  if (t.includes("fire"))     return "🔥";
-  if (t.includes("heat"))     return "🌡️";
-  if (t.includes("collapse")) return "🏗️";
-  if (t.includes("crowd"))    return "👥";
-  if (t.includes("social"))   return "📱";
+  if (t.includes("security") || t.includes("breach")) return "🔒";
+  if (t.includes("ddos") || t.includes("attack"))     return "🛡";
+  if (t.includes("outage") || t.includes("service"))  return "🔌";
+  if (t.includes("data"))     return "🗄";
+  if (t.includes("performance") || t.includes("latency")) return "📉";
+  if (t.includes("complian")) return "📋";
   return "⚠️";
 };
 
@@ -162,6 +162,15 @@ export default function IntelligenceView({
 
   if (loading) return <IntelligenceSkeleton />;
 
+  // Center the map on the actual incident footprint (global cloud regions),
+  // not a hardcoded city. Falls back to a world view when there are none.
+  const located = activeIncidents.filter((i: any) => i.location?.lat != null && i.location?.lng != null);
+  const mapCenter = located.length
+    ? { lat: located.reduce((s: number, i: any) => s + i.location.lat, 0) / located.length,
+        lng: located.reduce((s: number, i: any) => s + i.location.lng, 0) / located.length }
+    : { lat: 25, lng: 10 };
+  const mapZoom = located.length <= 1 ? 4 : 2;
+
   return (
     <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 h-full animate-in fade-in duration-500 overflow-y-auto lg:overflow-hidden pb-20 lg:pb-0">
 
@@ -172,8 +181,8 @@ export default function IntelligenceView({
           <APIProvider apiKey={GMAPS_KEY}>
             <Map
               mapId="maestro-intelligence"
-              defaultCenter={{ lat: 24.8607, lng: 67.0011 }}
-              defaultZoom={12}
+              defaultCenter={mapCenter}
+              defaultZoom={mapZoom}
               disableDefaultUI
               gestureHandling="greedy"
               colorScheme="DARK"
@@ -372,8 +381,8 @@ export default function IntelligenceView({
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { k: "ambulance", e: "🚑" }, { k: "police",    e: "🚔" },
-                      { k: "fire",      e: "🚒" }, { k: "drone",     e: "🛸" },
+                      { k: "sre", e: "🛠" }, { k: "seceng", e: "🔒" },
+                      { k: "dataeng", e: "🗄" }, { k: "ic", e: "🎖" }, { k: "compliance", e: "📋" },
                     ].map(({ k, e }) => {
                       const count = selected.allocatedResources?.[k] ?? 0;
                       return (

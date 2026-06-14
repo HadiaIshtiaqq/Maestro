@@ -963,8 +963,8 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
               <APIProvider apiKey={GMAPS_KEY}>
                 <Map
                   mapId="maestro-response"
-                  defaultCenter={{ lat: 24.8607, lng: 67.0011 }}
-                  defaultZoom={12}
+                  defaultCenter={{ lat: 25, lng: 10 }}
+                  defaultZoom={2}
                   disableDefaultUI
                   colorScheme="DARK"
                   style={{ width: "100%", height: "100%" }}
@@ -1503,8 +1503,8 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
                 <APIProvider apiKey={GMAPS_KEY}>
                   <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
                     <Map
-                      defaultCenter={{ lat: 24.92, lng: 67.08 }}
-                      defaultZoom={12}
+                      defaultCenter={{ lat: 25, lng: 10 }}
+                      defaultZoom={2}
                       gestureHandling="none"
                       disableDefaultUI
                       colorScheme="DARK"

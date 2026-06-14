@@ -9,7 +9,7 @@ import { twMerge } from "tailwind-merge";
 
 function cn(...i: ClassValue[]) { return twMerge(clsx(i)); }
 
-export type AppMode    = "all" | "normal" | "disaster" | "world_cup";
+export type AppMode    = "all" | "security" | "infrastructure" | "compliance";
 export type AppPersona = "operator" | "dispatcher" | "executive";
 
 interface TopBarProps {
@@ -26,16 +26,16 @@ interface TopBarProps {
 }
 
 const PERSONAS: { value: AppPersona; label: string }[] = [
-  { value: "operator",   label: "Operator / Dispatcher" },
-  { value: "dispatcher", label: "Field Dispatcher"      },
-  { value: "executive",  label: "Executive View"        },
+  { value: "operator",   label: "Incident Operator" },
+  { value: "dispatcher", label: "On-Call Engineer"  },
+  { value: "executive",  label: "Executive View"    },
 ];
 
 const MODES: { value: AppMode; label: string; cls: string; activeClass: string }[] = [
-  { value: "all",       label: "All",       cls: "", activeClass: "bg-white/15 text-white"             },
-  { value: "normal",    label: "Normal",    cls: "", activeClass: "bg-emerald-700/40 text-emerald-300" },
-  { value: "disaster",  label: "Disaster",  cls: "", activeClass: "bg-red-700/50 text-red-300"         },
-  { value: "world_cup", label: "World Cup", cls: "", activeClass: "bg-yellow-700/40 text-yellow-300"   },
+  { value: "all",            label: "All",            cls: "", activeClass: "bg-white/15 text-white"             },
+  { value: "security",       label: "Security",       cls: "", activeClass: "bg-red-700/50 text-red-300"         },
+  { value: "infrastructure", label: "Infrastructure", cls: "", activeClass: "bg-cyan-700/40 text-cyan-300"       },
+  { value: "compliance",     label: "Compliance",     cls: "", activeClass: "bg-amber-700/40 text-amber-300"     },
 ];
 
 const NAV_VIEWS = [
