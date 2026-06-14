@@ -115,9 +115,10 @@ Prior Agent Context: ${JSON.stringify(task.context ?? {}, null, 2)}
 Respond ONLY with a valid JSON object. No markdown fences. No commentary.
 `;
 
-    // Try Claude first; fall back to Gemini/AI-ML when no API key
+    // Try Claude first (direct Anthropic or Claude via AI/ML API); fall back to
+    // Gemini/AI-ML only if Claude is entirely unavailable.
     let result = await askClaude(prompt);
-    let engine = 'Claude';
+    let engine = result?.__engine ?? 'Claude';
     if (!result) {
       result = await askGemini(prompt);
       engine = result?.__engine ? `${result.__engine} (fallback)` : 'Gemini (fallback)';
