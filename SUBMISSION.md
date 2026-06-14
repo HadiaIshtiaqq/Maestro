@@ -95,13 +95,25 @@ What makes it Track-3-grade:
 ---
 
 ## Submission Checklist (status)
-- [ ] Public GitHub repo — **rotate leaked secrets first**, then push
-- [ ] Demo application URL — deploy to Cloud Run (`deploy.ps1`, set OPERATOR_API_KEY + CORS_ORIGIN)
+- [x] **Public GitHub repo** — https://github.com/HadiaIshtiaqq/Maestro
+- [x] **Demo application URL** — https://maestro-backend-1010212017317.us-central1.run.app (Cloud Run; UI + API live, Atlas connected, operator routes auth-protected)
+- [x] **Band integration verified on the real platform** — multi-identity agents post live; human/reviewer approval flows back through Band (audit shows "via Band")
 - [ ] Video presentation — script above
 - [ ] Slide presentation — outline above
 - [ ] Cover image
 - [x] Project title / short / long description / tags — above
-- [ ] Band integration verified on the real platform (`BAND_USE_SDK=true` + kickoff creds)
+
+## Demo-day notes (important)
+- **Prod is slow (~5-6 min/incident):** each agent step is ~20-30s on Cloud Run
+  (awaited Band post + gpt-4o-mini on large prompts). For the video, EITHER
+  pre-fire an incident and screen-record the Band chat filling, OR record
+  locally (~60-90s/incident) and show the deployed URL separately. Bump Cloud
+  Run CPU/concurrency if you want prod faster.
+- **Warm up first:** min-instances=0 means a ~10s cold start on the first hit.
+- **Clean board:** `curl -X POST <url>/api/admin/reset-demo -H "x-operator-key: <OPERATOR_API_KEY>"`.
+- **Human approval beat:** keep `BAND_ALLOW_AGENT_APPROVAL=false`; reply "approve"
+  in the Band chat as yourself — Maestro reads it back and releases the gate.
+- **Rotate all secrets after the hackathon** (they're in the Cloud Run env + were shared during setup).
 
 ## Partner-prize angle
 Route the dependency-impact and runbook agents through AI/ML API and Featherless
