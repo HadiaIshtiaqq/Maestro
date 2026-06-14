@@ -26,25 +26,24 @@ interface LogicTraceViewProps {
   latestTrace?: TraceStep[] | null;
 }
 
-// ── Agent metadata ─────────────────────────────────────────────────────────────
+// ── Agent metadata (enterprise incident-response pipeline) ─────────────────────
 const AGENT_META: Record<string, { label: string; icon: React.ElementType; color: string; group: string }> = {
-  "language-detection":       { label: "Language Detection",       icon: Languages,    color: "#38bdf8", group: "INGESTION"     },
-  "signal-fusion":            { label: "Signal Fusion",            icon: GitMerge,     color: "#818cf8", group: "INGESTION"     },
-  "credibility-analysis":     { label: "Credibility Analysis",     icon: ShieldCheck,  color: "#a78bfa", group: "ANALYSIS"      },
-  "crisis-classification":    { label: "Crisis Classification",    icon: Tag,          color: "#f472b6", group: "ANALYSIS"      },
-  "severity-prediction":      { label: "Severity Prediction",      icon: TrendingUp,   color: "#fb923c", group: "PREDICTION"    },
-  "resource-allocation":      { label: "Resource Allocation",      icon: Package,      color: "#34d399", group: "ACTION"        },
-  "traffic-simulation":       { label: "Traffic Simulation",       icon: Car,          color: "#fbbf24", group: "ACTION"        },
-  "traffic-impact":           { label: "Traffic Impact",           icon: Map,          color: "#fbbf24", group: "ACTION"        },
-  "infrastructure-advisor":   { label: "Infrastructure Advisor",   icon: Building,     color: "#2dd4bf", group: "ACTION"        },
-  "stakeholder-notification": { label: "Stakeholder Notification", icon: Bell,         color: "#60a5fa", group: "ACTION"        },
-  "incident-commander":       { label: "Incident Commander",       icon: Bot,          color: "#00e5ff", group: "COMMAND"       },
-  "verification-escalation":  { label: "Verification & Escalation",icon: ShieldCheck,  color: "#f87171", group: "VERIFICATION"  },
-  "recovery-agent":           { label: "Recovery Agent",           icon: RefreshCw,    color: "#f87171", group: "VERIFICATION"  },
-  "resource-manager":         { label: "Resource Manager",         icon: Database,     color: "#34d399", group: "ACTION"        },
+  "intake-normalization":   { label: "Intake & Normalization",   icon: GitMerge,     color: "#38bdf8", group: "INGESTION"  },
+  "correlation-dedup":      { label: "Correlation & Dedup",      icon: GitMerge,     color: "#818cf8", group: "INGESTION"  },
+  "validation-credibility": { label: "Validation & Credibility", icon: ShieldCheck,  color: "#a78bfa", group: "ANALYSIS"   },
+  "classification":         { label: "Classification",           icon: Tag,          color: "#f472b6", group: "ANALYSIS"   },
+  "severity-blast-radius":  { label: "Severity & Blast Radius",  icon: TrendingUp,   color: "#fb923c", group: "ANALYSIS"   },
+  "responder-allocation":   { label: "Responder Allocation",     icon: Package,      color: "#34d399", group: "RESPONSE"   },
+  "dependency-impact-sim":  { label: "Dependency Impact Sim",    icon: Map,          color: "#2dd4bf", group: "RESPONSE"   },
+  "mitigation-projection":  { label: "Mitigation Projection",    icon: TrendingUp,   color: "#fbbf24", group: "RESPONSE"   },
+  "runbook-advisor":        { label: "Runbook Advisor",          icon: Building,     color: "#60a5fa", group: "RESPONSE"   },
+  "stakeholder-comms":      { label: "Stakeholder Comms",        icon: Bell,         color: "#60a5fa", group: "RESPONSE"   },
+  "incident-commander":     { label: "Incident Commander",       icon: Bot,          color: "#00e5ff", group: "COMMAND"    },
+  "resource-manager":       { label: "Resource Manager",         icon: Database,     color: "#34d399", group: "RESPONSE"   },
+  "correlation-dedup-rule": { label: "Cross-Signal Dedup",       icon: GitMerge,     color: "#818cf8", group: "INGESTION"  },
 };
 
-const GROUP_ORDER = ["INGESTION", "ANALYSIS", "PREDICTION", "ACTION", "COMMAND", "VERIFICATION"];
+const GROUP_ORDER = ["INGESTION", "ANALYSIS", "RESPONSE", "COMMAND"];
 
 function confidenceCls(c: number) {
   if (c >= 0.75) return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
@@ -518,10 +517,10 @@ export default function LogicTraceView({ incidents = [], latestTrace }: LogicTra
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { key: "ambulance", icon: "🚑", label: "Amb" },
-                  { key: "police",    icon: "🚔", label: "Police" },
-                  { key: "fire",      icon: "🚒", label: "Fire" },
-                  { key: "drone",     icon: "🛸", label: "Drone" },
+                  { key: "sre",       icon: "🛠", label: "SRE" },
+                  { key: "seceng",    icon: "🔒", label: "SecEng" },
+                  { key: "dataeng",   icon: "🗄", label: "Data" },
+                  { key: "ic",        icon: "🎖", label: "IC" },
                 ].map(r => (
                   <div key={r.key} className="bg-white/5 rounded-lg p-2 text-center">
                     <span className="text-base">{r.icon}</span>

@@ -51,7 +51,7 @@ const SEV_CLS: Record<string, string> = {
   medium:   "bg-blue-700    text-white",
   low:      "bg-slate-700   text-slate-200",
 };
-const SEV_LABEL: Record<string, string> = { critical: "CRITICAL", high: "URGENT", medium: "NON-EMERG", low: "LOW" };
+const SEV_LABEL: Record<string, string> = { critical: "SEV-1", high: "SEV-2", medium: "SEV-3", low: "LOW" };
 
 const CTRL_CLS: Record<string, string> = {
   "Unverified":  "bg-amber-900/60   text-amber-400   border-amber-800/50",
@@ -127,7 +127,7 @@ export default function IncidentCommandView({ incidents, mode, onRefresh }: Prop
     if (!smsMsg.trim() || !selected) return;
     try {
       await fetch("/api/users/dispatch", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ service: "ambulance", incidentId: selected.incidentId, incidentType: selected.type, location: selected.location, severity: selected.severity, message: smsMsg, unitsNeeded: 1 }),
+        body: JSON.stringify({ service: "oncall", incidentId: selected.incidentId, incidentType: selected.type, location: selected.location, severity: selected.severity, message: smsMsg, unitsNeeded: 1 }),
       });
     } catch {}
     flash("SMS dispatched"); setSmsMsg("");
@@ -538,7 +538,7 @@ export default function IncidentCommandView({ incidents, mode, onRefresh }: Prop
 
                       {(selected as any).infrastructureRecommendations?.nearbyHospitals?.length > 0 && (
                         <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-4">
-                          <h3 className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2">Nearby Hospitals</h3>
+                          <h3 className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2">Affected Services</h3>
                           {(selected as any).infrastructureRecommendations.nearbyHospitals.slice(0, 3).map((h: any) => (
                             <div key={h.id} className="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
                               <span className="text-white/70 font-medium">{h.name}</span>
@@ -731,7 +731,7 @@ export default function IncidentCommandView({ incidents, mode, onRefresh }: Prop
                               return (
                                 <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                                   className="rounded-xl border p-4 text-emerald-400 bg-emerald-500/[0.08] border-emerald-500/20">
-                                  <h3 className="text-[9px] font-black uppercase tracking-widest mb-2">Hospital Notification</h3>
+                                  <h3 className="text-[9px] font-black uppercase tracking-widest mb-2">Status Page Update</h3>
                                   {ch.subject  && <p className="text-[9px] text-emerald-300/70 font-bold mb-1.5">{ch.subject}</p>}
                                   {ch.message  && <p className="text-xs text-white/70 leading-relaxed mb-2">{ch.message}</p>}
                                   <div className="grid grid-cols-2 gap-1.5">
@@ -751,7 +751,7 @@ export default function IncidentCommandView({ incidents, mode, onRefresh }: Prop
                                 <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                                   className="rounded-xl border p-4 text-blue-400 bg-blue-500/[0.08] border-blue-500/20">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <h3 className="text-[9px] font-black uppercase tracking-widest">Police Dispatch</h3>
+                                    <h3 className="text-[9px] font-black uppercase tracking-widest">Security Team Notification</h3>
                                     {ch.priorityCode && (
                                       <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-blue-500/20 text-blue-300 border-blue-500/30 uppercase">
                                         {ch.priorityCode}

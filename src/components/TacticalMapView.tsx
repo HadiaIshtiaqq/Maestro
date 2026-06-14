@@ -78,7 +78,7 @@ const signalTypes = [
 const crisisTags = [
   { id: "flood_en", label: "Security", icon: "🌊" },
   { id: "flood_ur", label: "Outage", icon: "🌊" },
-  { id: "heatwave", label: "Heatwave", icon: "🔥" },
+  { id: "data", label: "Data", icon: "🗄" },
   { id: "accident", label: "Accident", icon: "💥" },
   { id: "infra_fail", label: "Infra Fail", icon: "🏗️" },
   { id: "road_block", label: "Road Block", icon: "🚧" },
@@ -350,10 +350,10 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
   const CLUSTER_DISTANCE = 8; // distance in map units
 
   const [assets, setAssets] = useState<Asset[]>([
-    { id: "ast-01", name: "Alpha Unit", status: "critical", type: "unit", location: { x: 45, y: 55 }, tags: ["Heatwave", "Infra Fail"], history: [{ x: 45, y: 55, timestamp: Date.now(), status: "critical", telemetry: { battery: 42, signal: 88, load: 92, temp: 48 } }], telemetry: { battery: 42, signal: 88, load: 92, temp: 48 } },
-    { id: "ast-02", name: "Drone-7", status: "high", type: "drone", location: { x: 60, y: 40 }, tags: ["Flood", "Accident"], history: [{ x: 60, y: 40, timestamp: Date.now(), status: "high", telemetry: { battery: 18, signal: 45, load: 60, temp: 52 } }], telemetry: { battery: 18, signal: 45, load: 60, temp: 52 } },
+    { id: "ast-01", name: "SRE Pod A", status: "critical", type: "unit", location: { x: 45, y: 55 }, tags: ["Outage", "Infra"], history: [{ x: 45, y: 55, timestamp: Date.now(), status: "critical", telemetry: { battery: 42, signal: 88, load: 92, temp: 48 } }], telemetry: { battery: 42, signal: 88, load: 92, temp: 48 } },
+    { id: "ast-02", name: "SecEng B", status: "high", type: "unit", location: { x: 60, y: 40 }, tags: ["Breach", "DDoS"], history: [{ x: 60, y: 40, timestamp: Date.now(), status: "high", telemetry: { battery: 18, signal: 45, load: 60, temp: 52 } }], telemetry: { battery: 18, signal: 45, load: 60, temp: 52 } },
     { id: "ast-03", name: "Med-Evac", status: "medium", type: "medical", location: { x: 30, y: 35 }, tags: ["Accident"], history: [{ x: 30, y: 35, timestamp: Date.now(), status: "medium", telemetry: { battery: 75, signal: 92, load: 30, temp: 38 } }], telemetry: { battery: 75, signal: 92, load: 30, temp: 38 } },
-    { id: "ast-04", name: "Fire Ops", status: "low", type: "fire", location: { x: 75, y: 65 }, tags: ["Heatwave", "Road Block"], history: [{ x: 75, y: 65, timestamp: Date.now(), status: "low", telemetry: { battery: 90, signal: 95, load: 15, temp: 41 } }], telemetry: { battery: 90, signal: 95, load: 15, temp: 41 } },
+    { id: "ast-04", name: "Data Eng C", status: "low", type: "unit", location: { x: 75, y: 65 }, tags: ["Data", "Replication"], history: [{ x: 75, y: 65, timestamp: Date.now(), status: "low", telemetry: { battery: 90, signal: 95, load: 15, temp: 41 } }], telemetry: { battery: 90, signal: 95, load: 15, temp: 41 } },
   ]);
 
   // ── Language + Confidence + Infrastructure state ───────────────────────────
