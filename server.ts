@@ -85,6 +85,9 @@ async function startServer() {
 
   // ── Band Adapter: wire Socket.IO broadcast + rehydrate rooms after restart ─
   bandAdapter.setBroadcast((event, data) => io.emit(event, data));
+  if (process.env.BAND_ALLOW_AGENT_APPROVAL === "true") {
+    console.warn("[Band] ⚠️  BAND_ALLOW_AGENT_APPROVAL=true — a peer AGENT can release the human approval gate. Turn OFF for the real demo (human-in-the-loop governance).");
+  }
   if (mongoose.connection.readyState === 1) {
     try {
       const { BandRoom, AgentMessage } = await import("./src/models/index");

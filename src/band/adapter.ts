@@ -240,35 +240,97 @@ export class MockBandAdapter extends EventEmitter implements IBandAdapter {
 //
 // Activate: BAND_USE_SDK=true + BAND_API_KEY + BAND_MENTION_ID.
 
+// A Band agent identity (one registered external agent: its API key + UUID).
+interface BandIdentity { key: string; id: string; name: string; }
+
+// Which Maestro agent roles post under which Band identity slot. This is what
+// makes DISTINCT agents appear collaborating in the Band chat: workers post as
+// the "intel"/"response" agents, the commander posts as the "commander" agent,
+// and they @mention each other / the human.
+const ROLE_SLOT: Record<string, "commander" | "intel" | "response"> = {
+  "incident-commander":     "commander",
+  "human-commander":        "commander",
+  "intake-normalization":   "intel",
+  "correlation-dedup":      "intel",
+  "validation-credibility": "intel",
+  "classification":         "intel",
+  "severity-blast-radius":  "intel",
+  "responder-allocation":   "response",
+  "dependency-impact-sim":  "response",
+  "mitigation-projection":  "response",
+  "runbook-advisor":        "response",
+  "stakeholder-comms":      "response",
+};
+
 export class BandSdkAdapter extends MockBandAdapter {
-  private apiUrl    = (process.env.BAND_API_URL ?? "https://app.band.ai/api/v1/agent").replace(/\/$/, "");
-  private apiKey    = process.env.BAND_API_KEY ?? "";
-  private mentionId = process.env.BAND_MENTION_ID ?? "";   // another participant's UUID
+  private apiUrl = (process.env.BAND_API_URL ?? "https://app.band.ai/api/v1/agent").replace(/\/$/, "");
+
+  // Band agent identities by slot. Commander is the primary (BAND_API_KEY).
+  // intel/response fall back to commander when their own keys aren't set, so
+  // the adapter works with 1, 2, or 3 registered agents.
+  // NB: use || not ?? — empty-string env vars (FOO=) must fall through.
+  private commander: BandIdentity = {
+    key:  process.env.BAND_API_KEY || "",
+    id:   process.env.BAND_API_AGENT_ID || "",
+    name: "Maestro Commander",
+  };
+  private intel: BandIdentity = {
+    key:  process.env.BAND_INTEL_KEY || process.env.BAND_API_KEY || "",
+    id:   process.env.BAND_INTEL_ID  || process.env.BAND_MENTION_ID || "",
+    name: "Maestro Intel",
+  };
+  private response: BandIdentity = {
+    key:  process.env.BAND_RESPONSE_KEY || process.env.BAND_INTEL_KEY || process.env.BAND_API_KEY || "",
+    id:   process.env.BAND_RESPONSE_ID  || process.env.BAND_INTEL_ID  || process.env.BAND_MENTION_ID || "",
+    name: "Maestro Response",
+  };
+  private humanId   = process.env.BAND_HUMAN_ID || "";
+  private mentionId = process.env.BAND_MENTION_ID || "";   // legacy single-peer fallback
   // Maestro room_id (uuid) → Band chat id
   private chatIds = new Map<string, string>();
 
-  private async api(method: string, path: string, body?: any): Promise<any> {
-    if (!this.apiKey) throw new Error("BAND_API_KEY not configured");
+  // All distinct, configured participant UUIDs to add to every chat.
+  private participantIds(): string[] {
+    return [...new Set(
+      [this.commander.id, this.intel.id, this.response.id, this.humanId, this.mentionId].filter(Boolean)
+    )];
+  }
+
+  private identityFor(fromAgent: string): BandIdentity {
+    const slot = ROLE_SLOT[fromAgent] ?? "intel";
+    const id = slot === "commander" ? this.commander : slot === "response" ? this.response : this.intel;
+    // Fall back to commander if this slot has no usable key.
+    return id.key ? id : this.commander;
+  }
+
+  // Pick a mention target that is NOT the poster (Band rejects self-mentions).
+  // Decision messages ping the human; findings are directed at the commander.
+  private mentionTarget(msgType: string, posterId: string): string {
+    if ((msgType === "approval_request" || msgType === "proposal") && this.humanId && this.humanId !== posterId) {
+      return this.humanId;
+    }
+    const candidates = [this.commander.id, this.humanId, this.intel.id, this.mentionId];
+    return candidates.find(c => c && c !== posterId) ?? "";
+  }
+
+  private async apiAs(key: string, method: string, path: string, body?: any): Promise<any> {
+    if (!key) throw new Error("Band agent key not configured");
     const res = await fetch(`${this.apiUrl}${path}`, {
       method,
-      headers: { "X-API-Key": this.apiKey, "Content-Type": "application/json" },
+      headers: { "X-API-Key": key, "Content-Type": "application/json" },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     if (!res.ok) throw new Error(`Band API ${method} ${path} → ${res.status}: ${(await res.text()).slice(0, 200)}`);
     return res.status === 204 ? null : res.json();
   }
 
-  // Is this adapter wired to the real Band platform?
-  isLive(): boolean { return !!this.apiKey; }
-
-  // Decision messages (approval_request/proposal) ping the human so they act in
-  // Band; everything else mentions the peer agent.
-  private mentionFor(msgType: string): string {
-    const human = process.env.BAND_HUMAN_ID;
-    return (msgType === "approval_request" || msgType === "proposal") && human
-      ? human
-      : this.mentionId;
+  // Default API call uses the commander identity (chat creation, decision reads).
+  private async api(method: string, path: string, body?: any): Promise<any> {
+    return this.apiAs(this.commander.key, method, path, body);
   }
+
+  // Is this adapter wired to the real Band platform?
+  isLive(): boolean { return !!this.commander.key; }
 
   // Read the human's decision back FROM Band — closes the coordination loop
   // through the platform. Returns a decision once the human replies in the chat.
@@ -329,14 +391,17 @@ export class BandSdkAdapter extends MockBandAdapter {
       const chatId = resp?.data?.id ?? resp?.id;
       if (chatId) {
         this.chatIds.set(room.room_id, chatId);
-        // Add the mention target (and optional human commander) as participants,
-        // otherwise Band rejects messages with "mentioned_participant_not_in_room".
-        for (const pid of [this.mentionId, process.env.BAND_HUMAN_ID].filter(Boolean)) {
+        // Add every distinct agent identity + the human as participants, else
+        // Band rejects messages with "mentioned_participant_not_in_room". The
+        // chat creator (commander) is added automatically by Band.
+        for (const pid of this.participantIds()) {
+          if (pid === this.commander.id) continue;
           await this.api("POST", `/chats/${chatId}/participants`, {
             participant: { participant_id: pid },
           }).catch(e => console.warn(`[Band] add participant ${pid} failed: ${e.message}`));
         }
-        console.log(`[Band] Opened real Band chat ${chatId} for incident ${incidentId.slice(0, 8)}`);
+        const distinct = new Set([this.commander.key, this.intel.key, this.response.key].filter(Boolean)).size;
+        console.log(`[Band] Opened real Band chat ${chatId} for incident ${incidentId.slice(0, 8)} (${distinct} agent identit${distinct === 1 ? "y" : "ies"})`);
       }
     } catch (e: any) {
       console.warn(`[Band] createRoom remote failed (local room still active): ${e.message}`);
@@ -351,26 +416,27 @@ export class BandSdkAdapter extends MockBandAdapter {
     // Local store first — preserves authority enforcement, audit mirror, UI.
     const msg = await super.post(roomId, message);
     const chatId = this.chatIds.get(roomId);
-    const mention = this.mentionFor(message.msg_type);
-    if (chatId && mention) {
-      // Awaited so failures surface and post ordering is preserved.
+    if (!chatId) return msg;
+
+    // Post under the Band identity for this role, so distinct agents appear
+    // collaborating in the chat (worker findings vs commander proposals).
+    const poster  = this.identityFor(message.from_agent);
+    const mention = this.mentionTarget(message.msg_type, poster.id);
+    if (poster.key && mention) {
       try {
         let content = this.renderContent(message);
         if (message.msg_type === "approval_request") {
           content += `\n\n⛔ HUMAN COMMANDER: reply in this chat with "approve" or "veto" to release the gate.`;
         }
-        await this.api("POST", `/chats/${chatId}/messages`, {
-          message: {
-            content,
-            mentions: [{ id: mention }],   // must be another participant
-          },
+        await this.apiAs(poster.key, "POST", `/chats/${chatId}/messages`, {
+          message: { content, mentions: [{ id: mention }] },
         });
-        console.log(`[Band] → posted ${message.msg_type} from ${message.from_agent} to chat ${chatId.slice(0, 8)}`);
+        console.log(`[Band] → ${message.from_agent} (as ${poster.name}) posted ${message.msg_type} to chat ${chatId.slice(0, 8)}`);
       } catch (e: any) {
         console.warn(`[Band] post remote failed for chat ${chatId.slice(0, 8)}: ${e.message}`);
       }
-    } else if (chatId && !this.mentionId) {
-      console.warn("[Band] BAND_MENTION_ID not set — skipping remote post (Band requires mentioning another participant)");
+    } else if (!mention) {
+      console.warn("[Band] No mention target available — skipping remote post (Band requires mentioning another participant)");
     }
     return msg;
   }
