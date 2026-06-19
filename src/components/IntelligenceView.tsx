@@ -7,7 +7,9 @@ import { twMerge } from "tailwind-merge";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
-const GMAPS_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ?? "";
+import { getGoogleMapsApiKey } from "../lib/googleMaps";
+
+const GMAPS_KEY = getGoogleMapsApiKey();
 
 const SEV_COLOR: Record<string, string> = {
   critical: "#ef4444",

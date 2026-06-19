@@ -20,15 +20,16 @@ export async function notifyUsersNearIncident(incident: IIncident): Promise<void
   try {
     // Enterprise incidents are region-based and carry no coordinates —
     // proximity alerts only apply to geolocated (civic/mobile) incidents.
-    if (incident.location?.lat == null || incident.location?.lng == null) return;
+    if (!incident.location) return;
 
+    const { lat, lng } = incident.location;
     const allUsers = await User.find({});
     const affected: IUser[] = [];
 
     for (const user of allUsers) {
       const dist = haversine(
         user.location.lat, user.location.lng,
-        incident.location.lat, incident.location.lng,
+        lat, lng,
       );
       if (dist <= user.alertRadiusKm) affected.push(user);
     }
@@ -41,7 +42,7 @@ export async function notifyUsersNearIncident(incident: IIncident): Promise<void
 
     const title = `${severityEmoji(incident.severity)} ${incident.type} Alert`;
     const body  = `${incident.severity.toUpperCase()} confirmed near you — ${Math.round(incident.confidence * 100)}% confidence`;
-    const mapsUrl = `https://maps.google.com/?q=${incident.location.lat},${incident.location.lng}`;
+    const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
 
     // Push notifications to all affected users
     await Promise.allSettled(
@@ -69,7 +70,7 @@ export async function notifyUsersNearIncident(incident: IIncident): Promise<void
             useWhatsapp:      u.emergencyContact!.notifyViaWhatsapp,
             useEmail:         u.emergencyContact!.notifyViaEmail !== false,
             incidentType:     incident.type,
-            incidentLocation: u.location.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`,
+            incidentLocation: u.location.address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
             severity:         incident.severity,
             mapsUrl,
           })),
@@ -83,5 +84,7 @@ export async function notifyUsersNearIncident(incident: IIncident): Promise<void
 export async function getIncidentsNearUser(
   lat: number, lng: number, radiusKm: number, incidents: IIncident[],
 ): Promise<IIncident[]> {
-  return incidents.filter(inc => haversine(lat, lng, inc.location.lat, inc.location.lng) <= radiusKm);
+  return incidents.filter(
+    inc => inc.location != null && haversine(lat, lng, inc.location.lat, inc.location.lng) <= radiusKm,
+  );
 }

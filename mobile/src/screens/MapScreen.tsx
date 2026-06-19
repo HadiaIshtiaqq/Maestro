@@ -70,11 +70,21 @@ export default function MapScreen({ navigation }: Props) {
 
   useEffect(() => {
     load().finally(() => setLoading(false));
-    const socket = getSocket();
-    socket.on('incident:created',   () => load());
-    socket.on('incident:updated',   () => load());
-    socket.on('incident:retracted', () => load());
-    return () => { socket.off('incident:created'); socket.off('incident:updated'); socket.off('incident:retracted'); };
+    let socket: Awaited<ReturnType<typeof getSocket>> | undefined;
+    let active = true;
+    getSocket().then((s) => {
+      if (!active) return;
+      socket = s;
+      s.on('incident:created',   () => load());
+      s.on('incident:updated',   () => load());
+      s.on('incident:retracted', () => load());
+    });
+    return () => {
+      active = false;
+      socket?.off('incident:created');
+      socket?.off('incident:updated');
+      socket?.off('incident:retracted');
+    };
   }, []);
 
   const focusIncident = (inc: Incident) => {

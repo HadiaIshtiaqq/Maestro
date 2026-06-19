@@ -1,6 +1,11 @@
 {
-  "name": "Maestro Crisis Platform",
-  "description": "A high-fidelity crisis intelligence platform with real-time AI-powered incident detection, tactical mapping, autonomous dispatch, and cross-platform command and control.",
+  "name": "Maestro",
+  "description": "Governed multi-agent enterprise incident response — 11 AI agents and a human commander coordinate through Band with policy-enforced approval gates and a tamper-evident audit trail.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "Multi-agent incident pipeline via Band",
+    "Human-in-the-loop approval gates",
+    "Operator command dashboard",
+    "Compliance audit export"
+  ]
 }

@@ -9,9 +9,6 @@ export const config = {
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/ciro',
     dnsServers: process.env.DNS_SERVERS?.split(',').map((item) => item.trim()).filter(Boolean) ?? [],
   },
-  redis: {
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
-  },
   dnsServers: process.env.DNS_SERVERS?.split(',').map((item) => item.trim()).filter(Boolean) ?? [],
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -22,6 +19,7 @@ export const config = {
     apiKey: process.env.GEMINI_API_KEY,
   },
   jwtSecret: resolveJwtSecret(),
+  operatorApiKey: resolveOperatorApiKey(),
 };
 
 // No hardcoded fallback: in production a missing JWT_SECRET is a fatal misconfig;
@@ -33,4 +31,15 @@ function resolveJwtSecret(): string {
   }
   console.warn('[Config] JWT_SECRET not set — using a random per-boot secret (dev only)');
   return randomBytes(32).toString('hex');
+}
+
+function resolveOperatorApiKey(): string | undefined {
+  const key = process.env.OPERATOR_API_KEY?.trim() || undefined;
+  if ((process.env.NODE_ENV || 'development') === 'production' && !key) {
+    throw new Error('OPERATOR_API_KEY must be set in production');
+  }
+  if (!key) {
+    console.warn('[Config] OPERATOR_API_KEY not set — operator routes are open (dev only)');
+  }
+  return key;
 }

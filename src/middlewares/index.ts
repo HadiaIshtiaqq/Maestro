@@ -1,58 +1,68 @@
 import { Request, Response, NextFunction } from "express";
-import admin from "firebase-admin";
+import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
+import { isOperatorKeyValid } from "../lib/authUtils.js";
 
-// Initialize Firebase Admin if possible
-if (config.firebase.projectId && config.firebase.clientEmail && config.firebase.privateKey) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: config.firebase.projectId,
-      clientEmail: config.firebase.clientEmail,
-      privateKey: config.firebase.privateKey,
-    }),
-  });
+export interface AuthenticatedRequest extends Request {
+  userId?: string;
 }
 
-export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers.authorization?.split("Bearer ")[1];
+// ── JWT authorization (mobile users) ─────────────────────────────────────────
 
-  if (!token) {
+export function jwtAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-
   try {
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    (req as any).user = decodedToken;
+    const decoded = jwt.verify(header.slice(7), config.jwtSecret) as { sub: string };
+    req.userId = decoded.sub;
     next();
-  } catch (error) {
+  } catch {
     res.status(401).json({ error: "Invalid token" });
   }
 }
 
 // ── Operator authorization ────────────────────────────────────────────────────
 // Guards privileged routes: human approval gate, operator actions, demo seeding.
-// Requires the x-operator-key header to match OPERATOR_API_KEY. When the env var
-// is unset (local dev) requests pass through with a one-time warning so the demo
-// stays runnable out of the box.
+// Requires the x-operator-key header to match OPERATOR_API_KEY. In production
+// the key is mandatory (server refuses to boot without it). In development an
+// unset key logs a one-time warning and allows access for local demos.
 
 let warnedNoOperatorKey = false;
 
 export function operatorAuth(req: Request, res: Response, next: NextFunction) {
-  const requiredKey = process.env.OPERATOR_API_KEY;
+  const requiredKey = config.operatorApiKey;
   if (!requiredKey) {
     if (!warnedNoOperatorKey) {
-      console.warn("[Auth] OPERATOR_API_KEY not set — operator routes are UNPROTECTED. Set it before hosting publicly.");
+      console.warn("[Auth] OPERATOR_API_KEY not set — operator routes are UNPROTECTED (dev only).");
       warnedNoOperatorKey = true;
     }
     return next();
   }
-  if (req.headers["x-operator-key"] === requiredKey) return next();
+  const provided = req.headers["x-operator-key"];
+  if (typeof provided === "string" && isOperatorKeyValid(provided, requiredKey)) {
+    return next();
+  }
   return res.status(401).json({ error: "Operator authorization required" });
 }
 
+/** Validate operator key from Socket.IO handshake auth payload. */
+export function isValidSocketAuth(auth: { operatorKey?: string; token?: string } | undefined): boolean {
+  if (!config.operatorApiKey) return true; // dev: open sockets
+  if (auth?.operatorKey && isOperatorKeyValid(auth.operatorKey, config.operatorApiKey)) return true;
+  if (auth?.token) {
+    try {
+      jwt.verify(auth.token, config.jwtSecret);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 // ── Rate limiting ─────────────────────────────────────────────────────────────
-// Fixed-window per-IP limiter for expensive endpoints (each call can run a
-// full multi-provider LLM pipeline). In-memory: resets on restart, single-node.
 
 export function rateLimit(maxPerMinute: number) {
   const hits = new Map<string, { count: number; windowStart: number }>();
@@ -65,7 +75,6 @@ export function rateLimit(maxPerMinute: number) {
 
     if (!entry || now - entry.windowStart >= WINDOW_MS) {
       hits.set(key, { count: 1, windowStart: now });
-      // Opportunistic cleanup so the map doesn't grow unbounded
       if (hits.size > 10_000) {
         for (const [k, v] of hits) if (now - v.windowStart >= WINDOW_MS) hits.delete(k);
       }
@@ -81,9 +90,9 @@ export function rateLimit(maxPerMinute: number) {
   };
 }
 
-export function errorMiddleware(err: any, req: Request, res: Response, next: NextFunction) {
+export function errorMiddleware(err: Error, _req: Request, res: Response, _next: NextFunction) {
   console.error(err.stack);
   res.status(500).json({
-    error: config.env === "production" ? "Internal Server Error" : err.message
+    error: config.env === "production" ? "Internal Server Error" : err.message,
   });
 }

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { APIProvider, Map, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { Layers } from "lucide-react";
 import type { LiveIncident } from "../hooks/useLiveIncidents";
@@ -7,7 +7,9 @@ import { twMerge } from "tailwind-merge";
 
 function cn(...i: ClassValue[]) { return twMerge(clsx(i)); }
 
-const GMAPS_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ?? "";
+import { getGoogleMapsApiKey } from "../lib/googleMaps";
+
+const GMAPS_KEY = getGoogleMapsApiKey();
 
 export const SEVERITY_COLOR: Record<string, string> = {
   critical: "#ef4444",
@@ -25,10 +27,6 @@ const LAYERS_CFG = [
   { section: "DISASTER", items: [
     { id: "heatmap",        label: "Heatmap",        on: false },
     { id: "disaster_zones", label: "Disaster zones",  on: false },
-    { id: "blocked_roads",  label: "Blocked roads",   on: false },
-  ]},
-  { section: "LATER", items: [
-    { id: "route_lines", label: "Route lines", on: false },
   ]},
 ];
 
@@ -46,7 +44,7 @@ export default function CommandMap({ incidents, selectedId, onSelect }: Props) {
   });
   const toggle = (id: string) => setLayers(p => ({ ...p, [id]: !p[id] }));
 
-  const valid = incidents.filter(i => i.location?.lat && i.location?.lng);
+  const valid = incidents.filter(i => i.location?.lat && i.location?.lng && i.status !== "retracted");
   const center = valid.length
     ? { lat: valid.reduce((s, i) => s + i.location.lat, 0) / valid.length,
         lng: valid.reduce((s, i) => s + i.location.lng, 0) / valid.length }
@@ -106,7 +104,9 @@ export default function CommandMap({ incidents, selectedId, onSelect }: Props) {
             {grp.items.map(item => (
               <button key={item.id} onClick={() => toggle(item.id)}
                 className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-white/5 transition-colors">
-                <span className="text-[11px] text-on-surface-variant">{item.label}</span>
+                <span className="text-[11px] text-on-surface-variant">
+                  {item.id === "incidents" ? `${item.label} (${valid.length})` : item.label}
+                </span>
                 <span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded border",
                   layers[item.id]
                     ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"

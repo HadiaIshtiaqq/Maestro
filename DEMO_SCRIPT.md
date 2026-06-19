@@ -1,7 +1,7 @@
 # Maestro — Demo Runbook (video + slides)
 
 Live URL: https://maestro-backend-1010212017317.us-central1.run.app
-Band: https://app.band.ai  ·  Operator key: FZ0ophNf2uh1VTLbkKITsSHKPn8QLkTJ
+Band: https://app.band.ai  ·  Operator key: set `OPERATOR_API_KEY` in your environment (never commit it)
 
 ## 0. Pre-recording setup (do this BEFORE you hit record)
 
@@ -9,20 +9,21 @@ Prod runs ~5–6 min per incident, so you must NOT fire a cold incident on camer
 
 1. **Two windows side by side:** left = Maestro dashboard, right = the Band chat (app.band.ai → Chats).
 2. **Warm up** the server: open the dashboard once (first hit has a ~10s cold start).
-3. **Reset to a clean board** (terminal):
+3. **Set your operator key** in the dashboard when prompted (same value as `OPERATOR_API_KEY` on the server). Needed for approve, reset, and audit export.
+4. **Reset to a clean board** (terminal — replace `$OPERATOR_API_KEY` with your env value):
    ```
    curl -X POST https://maestro-backend-1010212017317.us-central1.run.app/api/admin/reset-demo \
-     -H "x-operator-key: FZ0ophNf2uh1VTLbkKITsSHKPn8QLkTJ" -H "Content-Type: application/json" -d '{}'
+     -H "x-operator-key: $OPERATOR_API_KEY" -H "Content-Type: application/json" -d '{}'
    ```
-4. **Pre-fire ONE incident ~4 min before recording**, so by the time you record it has reached the approval gate and its Band chat is full:
+5. **Pre-fire ONE incident ~4 min before recording**, so by the time you record it has reached the approval gate and its Band chat is full:
    ```
    curl -X POST https://maestro-backend-1010212017317.us-central1.run.app/api/ingest-signal \
      -H "Content-Type: application/json" \
      -d '{"source":"siem","type":"ransomware","data":{"alert":"Ransomware encryption on 3 prod file servers","service":"file-storage"},"urgency":10}'
    ```
    (Use the synchronous form — no `"async"` — so the response confirms it landed.)
-5. Confirm `BAND_ALLOW_AGENT_APPROVAL=false` so only YOU can approve. (It is, in the deployed env.)
-6. Open OBS / Loom / screen recorder. Record in SEGMENTS (slides, then demo) and stitch — don't do one nervous take.
+6. Confirm `BAND_ALLOW_AGENT_APPROVAL=false` so only YOU can approve. (It is, in the deployed env.)
+7. Open OBS / Loom / screen recorder. Record in SEGMENTS (slides, then demo) and stitch — don't do one nervous take.
 
 ## 1. Slide deck (7 slides) + the demo woven in
 
@@ -51,7 +52,7 @@ alt-tab back and continue.
 2. "This is a SEV-1 — Maestro's policy forces a human gate. The AI cannot skip it." 
 3. **Type `approve` in the Band chat as yourself and send it.**
 4. Alt-tab to the Maestro dashboard. Within ~5s the gate releases — the incident goes **active**, comms run. "Maestro read my approval back *from Band* and released the gate. The decision happened *inside* Band."
-5. (Optional) open `…/api/band/audit-trail/<incidentId>` in a tab: "approved by human-commander, via Band — full trail, regulator-ready."
+5. (Optional) open `…/api/band/audit-trail/<incidentId>` in a tab (operator key required — use dashboard prompt or curl header): "approved by human-commander, via Band — full trail, hash-chain verified."
 
 ## 2. Timing target (~3 min total)
 - Slides 1–3: 45s  ·  Slide 4 + Demo A: 50s  ·  Slide 5 + Demo B: 60s  ·  Slides 6–7: 30s.

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ── Maestro Cloud Run Deploy Script ────────────────────────────────────────────
 # Usage: ./deploy-cloudrun.sh
-# Prerequisites: gcloud CLI authenticated, project set to phonic-scheme-496507-d2
+# Prerequisites: gcloud CLI authenticated; set GCP_PROJECT_ID or edit default below
 set -e
 
-PROJECT_ID="phonic-scheme-496507-d2"
+PROJECT_ID="${GCP_PROJECT_ID:-phonic-scheme-496507-d2}"
 REGION="us-central1"
 SERVICE="maestro-backend"
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE}:latest"

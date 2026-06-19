@@ -8,24 +8,13 @@ import { IncidentService } from '../services/incidentService';
 import { eventBus } from '../events/eventBus';
 
 import { config } from '../config/index';
+import { jwtAuth, AuthenticatedRequest } from '../middlewares/index';
 
 const router = Router();
 const JWT_SECRET = config.jwtSecret;
 
 function makeToken(userId: string) {
   return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: '30d' });
-}
-
-function authMiddleware(req: any, res: any, next: any) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const decoded = jwt.verify(header.slice(7), JWT_SECRET) as any;
-    req.userId = decoded.sub;
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid token' });
-  }
 }
 
 // ── Register ──────────────────────────────────────────────────────────────────
@@ -66,14 +55,14 @@ router.post('/login', async (req, res) => {
 });
 
 // ── Get profile ───────────────────────────────────────────────────────────────
-router.get('/me', authMiddleware, async (req: any, res) => {
+router.get('/me', jwtAuth, async (req: AuthenticatedRequest, res) => {
   const user = await User.findById(req.userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json(safeUser(user));
 });
 
 // ── Update location ───────────────────────────────────────────────────────────
-router.put('/location', authMiddleware, async (req: any, res) => {
+router.put('/location', jwtAuth, async (req: any, res) => {
   try {
     const { lat, lng, address } = req.body;
     if (lat == null || lng == null) return res.status(400).json({ error: 'lat and lng required' });
@@ -91,7 +80,7 @@ router.put('/location', authMiddleware, async (req: any, res) => {
 });
 
 // ── Update emergency contact ──────────────────────────────────────────────────
-router.put('/emergency-contact', authMiddleware, async (req: any, res) => {
+router.put('/emergency-contact', jwtAuth, async (req: any, res) => {
   try {
     const { name, phone, email, relationship, notifyViaWhatsapp, notifyViaEmail } = req.body;
     if (!name || !phone) return res.status(400).json({ error: 'name and phone required' });
@@ -117,7 +106,7 @@ router.put('/emergency-contact', authMiddleware, async (req: any, res) => {
 });
 
 // ── Update alert radius ───────────────────────────────────────────────────────
-router.put('/alert-radius', authMiddleware, async (req: any, res) => {
+router.put('/alert-radius', jwtAuth, async (req: any, res) => {
   try {
     const { radiusKm } = req.body;
     const user = await User.findByIdAndUpdate(req.userId, { alertRadiusKm: radiusKm }, { new: true });
@@ -129,7 +118,7 @@ router.put('/alert-radius', authMiddleware, async (req: any, res) => {
 });
 
 // ── Register push token (Expo) ────────────────────────────────────────────────
-router.put('/push-token', authMiddleware, async (req: any, res) => {
+router.put('/push-token', jwtAuth, async (req: any, res) => {
   try {
     const { pushToken } = req.body;
     await User.findByIdAndUpdate(req.userId, { pushToken });
@@ -140,7 +129,7 @@ router.put('/push-token', authMiddleware, async (req: any, res) => {
 });
 
 // ── SOS — notify emergency contact immediately ────────────────────────────────
-router.post('/sos', authMiddleware, async (req: any, res) => {
+router.post('/sos', jwtAuth, async (req: any, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -170,7 +159,7 @@ router.post('/sos', authMiddleware, async (req: any, res) => {
 });
 
 // ── Nearby incidents for user ─────────────────────────────────────────────────
-router.get('/nearby-incidents', authMiddleware, async (req: any, res) => {
+router.get('/nearby-incidents', jwtAuth, async (req: any, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -186,9 +175,18 @@ router.get('/nearby-incidents', authMiddleware, async (req: any, res) => {
 });
 
 // ── Dispatch services (ambulance / police / fire) ─────────────────────────────
-router.post('/dispatch', authMiddleware, async (req: any, res) => {
+router.post('/dispatch', jwtAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
     const { service, phone, incidentId, incidentType, location, severity, unitsNeeded } = req.body;
+    if (!service || !phone) {
+      return res.status(400).json({ error: 'service and phone are required' });
+    }
+    const allowedPhones = [user.phone, user.emergencyContact?.phone].filter(Boolean);
+    if (!allowedPhones.includes(phone)) {
+      return res.status(403).json({ error: 'Dispatch phone must match your registered or emergency contact number' });
+    }
     const result = await sendDispatchAlert({ service, phone, incidentId, incidentType, location, severity, unitsNeeded });
     res.json(result);
   } catch (e: any) {

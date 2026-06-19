@@ -63,4 +63,6 @@ export interface IBandAdapter {
   recruit(roomId: string, agentRole: string): Promise<void>;
   onMessage(roomId: string, handler: (msg: BandMessage) => void): () => void;
   closeRoom(roomId: string): Promise<void>;
+  /** Wipe in-memory room/message store (demo reset). */
+  clearLocal(): void;
 }

@@ -1,16 +1,12 @@
 // Privileged API calls (approve/veto, operator takeover/resolve, admin reset)
-// must carry the operator key. To avoid baking a secret into the public bundle,
-// the key is supplied at RUNTIME by the operator and kept in localStorage — it
-// never appears in the shipped JS. A build-time VITE_OPERATOR_KEY is honored
-// only as a local-dev convenience (left empty in the production build).
+// carry the operator key supplied at runtime via localStorage or a prompt.
+// The key is never baked into the production frontend bundle.
 
 const STORAGE_KEY = "maestro_operator_key";
 
 function getOperatorKey(): string {
   if (typeof window === "undefined") return "";
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (stored) return stored;
-  return (import.meta as any).env?.VITE_OPERATOR_KEY || "";
+  return window.localStorage.getItem(STORAGE_KEY) || "";
 }
 
 /** Set/clear the operator key at runtime (e.g. from a settings field or console). */
@@ -20,9 +16,12 @@ export function setOperatorKey(key: string): void {
   else window.localStorage.removeItem(STORAGE_KEY);
 }
 
+export function getStoredOperatorKey(): string {
+  return getOperatorKey();
+}
+
 export function operatorFetch(path: string, init: RequestInit = {}): Promise<Response> {
   let key = getOperatorKey();
-  // Prompt once for the key if none is configured, then remember it.
   if (!key && typeof window !== "undefined" && typeof window.prompt === "function") {
     key = window.prompt("Operator key (for privileged actions):") || "";
     if (key) setOperatorKey(key);
@@ -33,4 +32,10 @@ export function operatorFetch(path: string, init: RequestInit = {}): Promise<Res
   };
   if (key) headers["x-operator-key"] = key;
   return fetch(path, { ...init, headers });
+}
+
+/** Auth payload for Socket.IO handshake (operator dashboard). */
+export function getSocketAuth(): { operatorKey?: string } {
+  const key = getOperatorKey();
+  return key ? { operatorKey: key } : {};
 }

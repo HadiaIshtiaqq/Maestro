@@ -136,12 +136,12 @@ export default function App() {
                 {/* Compact side nav for non-command views */}
                 <div className="w-48 flex-shrink-0 bg-[#0d1117] border-r border-white/8 flex flex-col p-3 gap-1">
                   {[
-                    { id: "intelligence", label: "Intelligence"  },
-                    { id: "tactical",     label: "Tactical Map"  },
-                    { id: "trace",        label: "Logic Trace"   },
-                    { id: "simulations",  label: "Simulations"   },
-                    { id: "reporting",    label: "Reporting"     },
-                    { id: "command",      label: "← Command"     },
+                    { id: "intelligence", label: "Intelligence"      },
+                    { id: "tactical",     label: "Tactical Map"      },
+                    { id: "trace",        label: "Logic Trace"       },
+                    { id: "scenarios",    label: "Scenario Playbook" },
+                    { id: "reporting",    label: "Reporting"         },
+                    { id: "command",      label: "← Command"         },
                   ].map(v => (
                     <button key={v.id} onClick={() => setActiveView(v.id)}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${
@@ -153,11 +153,11 @@ export default function App() {
                 </div>
 
                 {/* View content */}
-                <div className="flex-1 overflow-auto p-4 min-h-0">
+                <div className={activeView === "tactical" ? "flex-1 min-h-0" : "flex-1 overflow-auto p-4 min-h-0"}>
                   {activeView === "intelligence" && <IntelligenceView incidents={incidents} resources={resources} autonomousActions={autonomousActions} />}
                   {activeView === "tactical"     && <TacticalMapView incidents={incidents} />}
                   {activeView === "trace"        && <LogicTraceView  incidents={incidents} latestTrace={latestTrace} />}
-                  {activeView === "simulations"  && <SimulationsView incidents={incidents} />}
+                  {activeView === "scenarios"    && <SimulationsView incidents={incidents} />}
                   {activeView === "reporting"    && <IncidentReportingView />}
                 </div>
               </div>

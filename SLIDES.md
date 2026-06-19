@@ -79,7 +79,7 @@ Governed Multi-Agent Incident Response — Coordinated through Band
 - **Claude** (Haiku 4.5) · **Gemini** · **AI/ML API** (GPT-4o-mini) · **Featherless** (Llama)
 - Every Band message is **labeled with the engine** that produced it
 - Cross-provider resilience: automatic failover if one provider rate-limits
-- **SHA-256 hash chain** over every message — exportable compliance trail (`/api/band/audit-trail/:id`)
+- **SHA-256 hash chain** over every message — exportable compliance trail (`/api/band/audit-trail/:id`, operator key required)
 
 **Speaker notes:** "Four frameworks collaborate in one incident, each message labeled with its engine — and if one provider rate-limits, it fails over automatically. Every message is hash-chained, so the audit trail is tamper-evident and regulator-ready."
 **Visual:** the engine-labeled timeline screenshot + a snippet of the audit-trail JSON (`integrity: verified`).

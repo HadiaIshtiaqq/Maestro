@@ -80,16 +80,22 @@ export default function AlertsScreen({ navigation }: any) {
 
   useEffect(() => {
     loadNearby();
-    const socket = getSocket();
-    socket.on('incident:created', addAlert);
-    socket.on('incident:updated', (inc: any) => {
-      if (inc.severity === 'critical' || inc.severity === 'high') addAlert(inc);
+    let socket: Awaited<ReturnType<typeof getSocket>> | undefined;
+    let active = true;
+    getSocket().then((s) => {
+      if (!active) return;
+      socket = s;
+      s.on('incident:created', addAlert);
+      s.on('incident:updated', (inc: any) => {
+        if (inc.severity === 'critical' || inc.severity === 'high') addAlert(inc);
+      });
+      s.on('autonomous:action', addAutonomousAlert);
     });
-    socket.on('autonomous:action', addAutonomousAlert);
     return () => {
-      socket.off('incident:created');
-      socket.off('incident:updated');
-      socket.off('autonomous:action');
+      active = false;
+      socket?.off('incident:created');
+      socket?.off('incident:updated');
+      socket?.off('autonomous:action');
     };
   }, [addAlert, addAutonomousAlert, loadNearby]);
 

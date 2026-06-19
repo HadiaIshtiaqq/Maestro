@@ -68,17 +68,23 @@ export default function DashboardScreen({ navigation }: Props) {
   useEffect(() => {
     load().finally(() => setLoading(false));
 
-    const socket = getSocket();
-    socket.on('incident:created',   () => load());
-    socket.on('incident:updated',   () => load());
-    socket.on('incident:retracted', () => load());
-    socket.on('resources:updated',  (data: any) => setResources(data));
+    let socket: Awaited<ReturnType<typeof getSocket>> | undefined;
+    let active = true;
+    getSocket().then((s) => {
+      if (!active) return;
+      socket = s;
+      s.on('incident:created',   () => load());
+      s.on('incident:updated',   () => load());
+      s.on('incident:retracted', () => load());
+      s.on('resources:updated',  (data: any) => setResources(data));
+    });
 
     return () => {
-      socket.off('incident:created');
-      socket.off('incident:updated');
-      socket.off('incident:retracted');
-      socket.off('resources:updated');
+      active = false;
+      socket?.off('incident:created');
+      socket?.off('incident:updated');
+      socket?.off('incident:retracted');
+      socket?.off('resources:updated');
     };
   }, [load]);
 

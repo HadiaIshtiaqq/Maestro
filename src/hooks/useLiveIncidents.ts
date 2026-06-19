@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { MOCK_INCIDENTS, MOCK_RESOURCES } from "../mocks/incidents";
+import { getSocketAuth } from "../lib/operatorFetch";
 
 export interface LiveIncident {
   incidentId:   string;
@@ -34,7 +35,7 @@ export interface ResourceMap {
 let _socket: Socket | null = null;
 function getSocket(): Socket {
   if (!_socket) {
-    _socket = io({ transports: ["websocket"] });
+    _socket = io({ transports: ["websocket"], auth: getSocketAuth() });
   }
   return _socket;
 }
@@ -51,6 +52,7 @@ export function useLiveIncidents() {
   const [resources, setResources]         = useState<ResourceMap>({});
   const [latestTrace, setLatestTrace]     = useState<any>(null);
   const [loading, setLoading]             = useState(true);
+  const [usingMockData, setUsingMockData] = useState(false);
   const [newestId, setNewestId]           = useState<string | null>(null);
   const [autonomousActions, setAutonomousActions] = useState<AutonomousActionLog[]>([]);
 
@@ -61,9 +63,17 @@ export function useLiveIncidents() {
       const data = await res.json();
       setIncidents(data.incidents ?? []);
       setResources({ pool: data.resourceMap?.pool, available: data.resourceMap?.available });
+      setUsingMockData(false);
     } catch {
-      setIncidents(MOCK_INCIDENTS);
-      setResources(MOCK_RESOURCES);
+      if (import.meta.env?.DEV) {
+        setIncidents(MOCK_INCIDENTS);
+        setResources(MOCK_RESOURCES);
+        setUsingMockData(true);
+      } else {
+        setIncidents([]);
+        setResources({});
+        setUsingMockData(false);
+      }
     }
   }, []);
 
@@ -113,5 +123,5 @@ export function useLiveIncidents() {
     };
   }, [fetchAll]);
 
-  return { incidents, resources, latestTrace, loading, newestId, autonomousActions, refresh: fetchAll };
+  return { incidents, resources, latestTrace, loading, usingMockData, newestId, autonomousActions, refresh: fetchAll };
 }

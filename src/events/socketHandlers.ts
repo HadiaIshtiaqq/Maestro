@@ -1,5 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { eventBus } from "./eventBus";
+import { config } from "../config/index.js";
+import { isValidSocketAuth } from "../middlewares/index.js";
 
 // Track which operators are viewing which incident
 // Map<incidentId, Set<socketId>>
@@ -29,6 +31,17 @@ function getViewerCount(incidentId: string): number {
 }
 
 export function setupSocketHandlers(io: Server) {
+
+  // Reject unauthenticated connections in production when operator key is configured.
+  io.use((socket, next) => {
+    if (config.env !== "production" || !config.operatorApiKey) {
+      return next();
+    }
+    if (isValidSocketAuth(socket.handshake.auth as { operatorKey?: string; token?: string })) {
+      return next();
+    }
+    return next(new Error("Socket authentication required"));
+  });
 
   // ── Per-client events ──────────────────────────────────────────────────────
 

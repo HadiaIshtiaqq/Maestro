@@ -63,69 +63,19 @@ import { APIProvider, Map, AdvancedMarker, Pin, Circle, Polyline } from "@vis.gl
 import { motion, AnimatePresence } from "motion/react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  GMAPS_KEY,
+  signalTypes,
+  crisisTags,
+  lngToX,
+  latToY,
+  type TacticalAsset as Asset,
+  type TacticalZone as Zone,
+} from "./tacticalMap/constants";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-const signalTypes = [
-  { id: "social", icon: Rss, label: "SIEM" },
-  { id: "weather", icon: Cloud, label: "Monitoring" },
-  { id: "traffic", icon: Car, label: "Ticketing" },
-  { id: "ai", icon: Bot, label: "AI Assistant" },
-];
-
-const crisisTags = [
-  { id: "flood_en", label: "Security", icon: "🌊" },
-  { id: "flood_ur", label: "Outage", icon: "🌊" },
-  { id: "data", label: "Data", icon: "🗄" },
-  { id: "accident", label: "Accident", icon: "💥" },
-  { id: "infra_fail", label: "Infra Fail", icon: "🏗️" },
-  { id: "road_block", label: "Road Block", icon: "🚧" },
-];
-
-interface Asset {
-  id: string;
-  name: string;
-  status: "critical" | "high" | "medium" | "low";
-  type: "unit" | "drone" | "medical" | "fire";
-  location: { x: number; y: number };
-  tags: string[];
-  history: { 
-    x: number; 
-    y: number; 
-    timestamp: number; 
-    status: "critical" | "high" | "medium" | "low";
-    telemetry?: {
-      battery: number;
-      signal: number;
-      load: number;
-      temp: number;
-    }
-  }[];
-  telemetry: {
-    battery: number;
-    signal: number;
-    load: number;
-    temp: number;
-  };
-}
-
-interface Zone {
-  id: string;
-  name: string;
-  points: { x: number; y: number }[];
-  type: "critical" | "alert" | "deployment";
-  color: string;
-}
-
-const GMAPS_KEY: string | undefined = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
-
-// ── Karachi coordinate projection ─────────────────────────────────────────────
-const LAT_MIN = 24.75, LAT_MAX = 25.10;
-const LNG_MIN = 66.85, LNG_MAX = 67.30;
-const lngToX = (lng: number) => ((lng - LNG_MIN) / (LNG_MAX - LNG_MIN)) * 90 + 5;
-const latToY = (lat: number) => ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * 90 + 5;
 
 interface InfrastructureMarker {
   id: string;
@@ -1301,7 +1251,6 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
                           {([
                             { key: 'heatmap' as const,      label: 'Heatmap'        },
                             { key: 'disasterZones' as const, label: 'Disaster zones' },
-                            { key: 'blockedRoads' as const,  label: 'Blocked roads'  },
                           ]).map(({ key, label }) => (
                             <button key={key} onClick={() => toggleLayer(key)}
                               className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-all">
@@ -1316,23 +1265,6 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
                               </span>
                             </button>
                           ))}
-                        </div>
-
-                        {/* LATER section */}
-                        <div>
-                          <p className="text-[8px] font-black uppercase tracking-widest text-white/25 mb-1.5 px-1">Later</p>
-                          <button onClick={() => toggleLayer('routeLines')}
-                            className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-all">
-                            <span className="text-[11px] font-bold text-white/80">Route lines</span>
-                            <span className={cn(
-                              "text-[9px] font-black px-2 py-0.5 rounded-md border transition-all",
-                              visibleLayers.routeLines
-                                ? "bg-[#00e5ff]/15 text-[#00e5ff] border-[#00e5ff]/40"
-                                : "bg-white/5 text-white/30 border-white/10"
-                            )}>
-                              {visibleLayers.routeLines ? "ON" : "OFF"}
-                            </span>
-                          </button>
                         </div>
                       </div>
                     </motion.div>
@@ -2359,7 +2291,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
         </div>
 
         {/* Side Panels - intelligence sidebar */}
-        <div className="w-full lg:w-1/3 flex flex-col gap-6 lg:h-full lg:overflow-hidden overflow-y-auto shrink-0">
+        <div className="w-full lg:w-1/3 flex flex-col gap-6 lg:h-full overflow-y-auto shrink-0">
           <div className="bg-[#14181f] border border-white/10 rounded-[32px] p-6 flex flex-col shadow-2xl relative overflow-hidden shrink-0">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-white/5 rounded-lg">
@@ -2660,7 +2592,7 @@ export default function TacticalMapView({ incidents: liveIncidents = [] }: Tacti
             )}
           </div>
 
-          <div className="hidden lg:flex flex-1 bg-[#14181f] border border-white/10 rounded-[32px] p-6 flex-col shadow-2xl relative overflow-hidden">
+          <div className="hidden lg:flex shrink-0 min-h-[400px] bg-[#14181f] border border-white/10 rounded-[32px] p-6 flex-col shadow-2xl relative overflow-hidden">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/5 rounded-lg">

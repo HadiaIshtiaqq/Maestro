@@ -1,616 +1,558 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { AlertTriangle, Timer, Activity, TrendingUp, Play, CheckCircle2, Loader2, Info } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { AlertTriangle, Activity, Play, CheckCircle2, Loader2, BookOpen, Zap, ShieldAlert, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { APIProvider, Map, AdvancedMarker, Polyline, Circle } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, AdvancedMarker, Circle } from "@vis.gl/react-google-maps";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const GMAPS_KEY = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ?? "";
+import { getGoogleMapsApiKey } from "../lib/googleMaps";
 
-// Karachi emergency route coordinates
-const CONGESTED_ROUTE = [
-  { lat: 24.8607, lng: 67.0152 }, // Civil Hospital
-  { lat: 24.8680, lng: 67.0230 },
-  { lat: 24.8760, lng: 67.0310 },
-  { lat: 24.8850, lng: 67.0420 },
-  { lat: 24.8950, lng: 67.0540 },
-  { lat: 24.9056, lng: 67.0822 }, // Stadium
-];
+const GMAPS_KEY = getGoogleMapsApiKey();
 
-const OPTIMIZED_ROUTE = [
-  { lat: 24.8607, lng: 67.0152 }, // Civil Hospital
-  { lat: 24.8600, lng: 67.0000 },
-  { lat: 24.8750, lng: 66.9950 },
-  { lat: 24.9000, lng: 67.0200 },
-  { lat: 24.9100, lng: 67.0600 },
-  { lat: 24.9056, lng: 67.0822 }, // Stadium
-];
-
-const AMBULANCE_STATIONS = [
-  { lat: 24.8607, lng: 67.0152, label: "Primary Region" },
-  { lat: 24.8820, lng: 67.0180, label: "Failover Region" },
-  { lat: 24.8975, lng: 67.0826, label: "DR Site" },
-];
-
-const INCIDENT_CENTER = { lat: 25, lng: 10 };
-const MAP_CENTER = { lat: 25, lng: 10 };
-
-function AnimatedPolylineRoute({ path, color, animated }: { path: { lat: number; lng: number }[]; color: string; animated?: boolean }) {
-  const [dashOffset, setDashOffset] = useState(0);
-
-  useEffect(() => {
-    if (!animated) return;
-    const interval = setInterval(() => {
-      setDashOffset(prev => (prev + 2) % 40);
-    }, 60);
-    return () => clearInterval(interval);
-  }, [animated]);
-
-  return (
-    <Polyline
-      path={path}
-      strokeColor={color}
-      strokeOpacity={animated ? 0.9 : 0.7}
-      strokeWeight={animated ? 5 : 4}
-      icons={animated ? [{
-        icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 4 },
-        offset: `${dashOffset}px`,
-        repeat: "40px",
-      }] : undefined}
-    />
-  );
-}
-
+// ── Scenario catalogue ────────────────────────────────────────────────────────
 const SCENARIOS = [
   {
     id: "disaster",
-    title: "🔥 Cascading Failure — DC Power + DB + Exfil",
-    description: "Fires a datacenter power failure, database replication failure, and suspected data exfiltration simultaneously. Tests multi-incident resource contention and triage under maximum load.",
-    type: "CRITICAL",
-    actionType: "DISASTER",
+    title: "Cascading Failure — DC Power + DB + Exfil",
+    description:
+      "Datacenter power failure cascades into database replication failure and suspected data exfiltration simultaneously. Tests multi-incident resource contention and triage under maximum operational load.",
+    severity: "CRITICAL",
+    icon: "🔥",
+    color: "#ef4444",
     endpoint: "/api/simulate/disaster",
-    parameters: {},
+    tags: ["SRE", "SecEng", "DataEng"],
   },
   {
     id: "world-cup",
-    title: "⚡ Peak Event — Traffic Surge + DDoS",
-    description: "Simulates a 14× peak-event traffic surge with a suspected volumetric DDoS riding it. Tests surge protocols and security/SRE coordination.",
-    type: "HIGH",
-    actionType: "PEAK_EVENT",
+    title: "Peak Event — Traffic Surge + DDoS",
+    description:
+      "14× peak-event traffic surge with a suspected volumetric DDoS riding it. Tests surge protocols and coordinated response across Security and SRE teams.",
+    severity: "HIGH",
+    icon: "⚡",
+    color: "#f97316",
     endpoint: "/api/simulate/world-cup",
-    parameters: {},
+    tags: ["SRE", "SecEng"],
   },
   {
     id: "stress-test",
-    title: "🛡 Stress Test — Breach + Outage",
-    description: "Fires a credential-stuffing attack and a payments-API outage simultaneously. Demonstrates two Band rooms contending for the shared on-call pool, with reallocation visible in both rooms.",
-    type: "HIGH",
-    actionType: "STRESS_TEST",
+    title: "Stress Test — Credential Breach + Payments Outage",
+    description:
+      "Credential-stuffing attack fires simultaneously with a payments-API outage. Demonstrates two incident rooms contending for the shared on-call pool, with reallocation visible in real time.",
+    severity: "HIGH",
+    icon: "🛡",
+    color: "#f97316",
     endpoint: "/api/simulate/stress-test",
-    parameters: {},
+    tags: ["SecEng", "SRE"],
   },
   {
     id: "false-positive",
-    title: "🔍 False Positive Recovery",
-    description: "Simulates a social media panic report that gets retracted after cross-validation. Tests agent correction and resource recall workflows.",
-    type: "MEDIUM",
-    actionType: "FALSE_POSITIVE",
+    title: "False Positive Recovery",
+    description:
+      "A social media panic report is ingested and retracted after automated cross-validation. Tests agent correction and resource recall workflows end-to-end.",
+    severity: "MEDIUM",
+    icon: "🔍",
+    color: "#3b82f6",
     endpoint: "/api/simulate/false-positive",
-    parameters: { incidentId: "SIM-FP-" + Date.now().toString().slice(-4), source: "social" },
+    tags: ["AI Agents", "Cross-validation"],
   },
   {
     id: "scenario-1",
-    title: "Scenario 1: Outage + Conflicting Signals",
-    description: "Monitoring reports a database outage while the vendor status page claims all-clear. Tests agent cross-validation and conflict resolution.",
-    type: "CRITICAL",
-    actionType: "CROSS_VALIDATION",
+    title: "Outage + Conflicting Signals",
+    description:
+      "Monitoring reports a database outage while the vendor status page shows all-clear. Tests agent cross-validation and conflict resolution under ambiguous data.",
+    severity: "CRITICAL",
+    icon: "🗄",
+    color: "#ef4444",
     endpoint: "/api/simulate/action",
-    parameters: {
-      primaryEvent: "Database Outage",
-      conflictingSource: "Vendor Status Page",
-      discrepancyType: "Internal alerts vs vendor all-clear"
-    }
+    body: {
+      incidentId: "DR-CONFLICT",
+      actionType: "CROSS_VALIDATION",
+      parameters: {
+        primaryEvent: "Database Outage",
+        conflictingSource: "Vendor Status Page",
+        discrepancyType: "Internal alerts vs vendor all-clear",
+      },
+    },
+    tags: ["DataEng", "AI Agents"],
   },
   {
     id: "scenario-2",
-    title: "Scenario 2: Cascading Infrastructure Failure",
-    description: "Power failure in the primary datacenter cascades to cooling and database clusters. Tests resource reallocation speed across dependent services.",
-    type: "HIGH",
-    actionType: "RESOURCE_REALLOCATION",
+    title: "Cascading Infrastructure Failure",
+    description:
+      "Power failure in the primary datacenter cascades to cooling and database clusters. Tests resource reallocation speed across dependent services under maximum load.",
+    severity: "HIGH",
+    icon: "🏗",
+    color: "#f97316",
     endpoint: "/api/simulate/action",
-    parameters: {
-      primaryEvent: "Datacenter Power Failure",
-      impactTarget: "Orders DB Cluster",
-      cascadingEffect: "Cooling Failure"
-    }
-  }
+    body: {
+      incidentId: "DR-CASCADE",
+      actionType: "RESOURCE_REALLOCATION",
+      parameters: {
+        primaryEvent: "Datacenter Power Failure",
+        impactTarget: "Orders DB Cluster",
+        cascadingEffect: "Cooling Failure",
+      },
+    },
+    tags: ["SRE", "DataEng"],
+  },
 ];
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const normalizeResult = (data: any, scenarioId: string) => {
+  if (data.actionTaken) return data;
+  if (data.retractionPlan) {
+    return {
+      actionTaken: `Retraction executed. Rollback time: ${data.retractionPlan.estimatedRollbackTime ?? "—"}.`,
+      metrics: {
+        etaLabel: "Rollback Time",
+        eta: data.retractionPlan.estimatedRollbackTime ?? "—",
+        impactLabel: "Units Released",
+        impact: `${
+          (data.resourcesReleased?.sre ?? 0) +
+          (data.resourcesReleased?.seceng ?? 0) +
+          (data.resourcesReleased?.dataeng ?? 0) +
+          (data.resourcesReleased?.drone ?? 0)
+        } units recalled`,
+      },
+      afterState:
+        data.antigravityTraceCorrection?.correctionNote ??
+        data.retractionPlan?.publicCommunication?.message ??
+        "Incident retracted — resources recalled.",
+      sideEffects: data.retractionPlan?.immediateActions ?? [],
+    };
+  }
+  if (data.incidents) {
+    const list = data.incidents as any[];
+    return {
+      actionTaken: `${data.scenario} — ${list.length} concurrent incidents activated.`,
+      metrics: {
+        etaLabel: "Incidents Activated",
+        eta: `${list.length}`,
+        impactLabel: "Total Units",
+        impact: `${Object.values((data.resources?.pool ?? {}) as Record<string, number>).reduce((s, v) => s + v, 0)} units`,
+      },
+      afterState: list
+        .map((i: any) => `${i.type ?? "incident"} (${Math.round((i.confidence ?? 0) * 100)}% confidence)`)
+        .join(" · ") + " — All AI pipelines active.",
+      sideEffects: list.map(
+        (i: any) =>
+          `${i.type ?? "incident"}: ${i.allocatedResources?.sre ?? 0}🛠 ${i.allocatedResources?.seceng ?? 0}🔒 deployed`
+      ),
+    };
+  }
+  if (data.results) {
+    const list = Object.values(data.results) as any[];
+    return {
+      actionTaken: `${data.scenario} — Multi-crisis resource contention demonstrated.`,
+      metrics: {
+        etaLabel: "Concurrent Crises",
+        eta: `${list.length}`,
+        impactLabel: "Total Units",
+        impact: `${Object.values((data.resourceContention?.pool ?? {}) as Record<string, number>).reduce((s, v) => s + v, 0)}`,
+      },
+      afterState: `Multiple incidents triggered simultaneously. Resource contention model active across ${list.length} sectors.`,
+      sideEffects: list.map(
+        (i: any) =>
+          `${i.type ?? "incident"}: ${Math.round((i.confidence ?? 0) * 100)}% conf · ${
+            (i.allocatedResources?.sre ?? 0) + (i.allocatedResources?.seceng ?? 0) + (i.allocatedResources?.dataeng ?? 0)
+          } units`
+      ),
+    };
+  }
+  return {
+    actionTaken: data.message ?? "Scenario executed.",
+    metrics: { etaLabel: "—", eta: "—", impactLabel: "—", impact: "—" },
+    afterState: JSON.stringify(data).slice(0, 200),
+    sideEffects: [],
+  };
+};
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function SimulationsView({ incidents = [] }: { incidents?: any[] }) {
-  const [activeSimulation, setActiveSimulation] = useState<any | null>(null);
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [activeScenario, setActiveScenario] = useState<(typeof SCENARIOS)[0] | null>(null);
+  const [running, setRunning] = useState(false);
   const [result, setResult] = useState<any | null>(null);
 
-  // Derive live map data from active incidents
   const activeIncidents = useMemo(
-    () => incidents.filter(i => i.location?.lat && i.location?.lng && i.status !== "retracted"),
+    () => incidents.filter((i) => i.location?.lat && i.location?.lng && i.status !== "retracted"),
     [incidents]
   );
 
   const mapCenter = useMemo(() => {
-    if (!activeIncidents.length) return MAP_CENTER;
-    const lat = activeIncidents.reduce((s: number, i: any) => s + i.location.lat, 0) / activeIncidents.length;
-    const lng = activeIncidents.reduce((s: number, i: any) => s + i.location.lng, 0) / activeIncidents.length;
-    return { lat, lng };
+    if (!activeIncidents.length) return { lat: 30.3753, lng: 69.3451 };
+    return {
+      lat: activeIncidents.reduce((s: number, i: any) => s + i.location.lat, 0) / activeIncidents.length,
+      lng: activeIncidents.reduce((s: number, i: any) => s + i.location.lng, 0) / activeIncidents.length,
+    };
   }, [activeIncidents]);
 
-  const liveAlternateRoutes = useMemo(() =>
-    activeIncidents.flatMap((i: any) =>
-      (i.infrastructureRecommendations?.alternativeRoutes ?? [])
-        .filter((r: any) => r.waypoints?.length >= 2)
-    ),
-    [activeIncidents]
-  );
-
-  const liveHospitals = useMemo(() =>
-    activeIncidents.flatMap((i: any) => i.infrastructureRecommendations?.nearbyHospitals ?? []),
-    [activeIncidents]
-  );
-
-  const normalizeSimResult = (data: any) => {
-    if (data.actionTaken) return data;
-    if (data.retractionPlan) {
-      return {
-        actionTaken: `Retraction executed. Rollback time: ${data.retractionPlan.estimatedRollbackTime ?? "—"}.`,
-        metrics: {
-          etaImprovement: data.retractionPlan.estimatedRollbackTime ?? "—",
-          congestionImpact: `${(data.resourcesReleased?.ambulance ?? 0) + (data.resourcesReleased?.police ?? 0) + (data.resourcesReleased?.fire ?? 0) + (data.resourcesReleased?.drone ?? 0)} units recalled`,
-        },
-        afterState: data.antigravityTraceCorrection?.correctionNote ?? data.retractionPlan?.publicCommunication?.message ?? "Incident retracted — resources recalled.",
-        sideEffects: data.retractionPlan?.immediateActions ?? [],
-      };
-    }
-    if (data.incidents) {
-      const incList = data.incidents as any[];
-      return {
-        actionTaken: `${data.scenario} — ${incList.length} concurrent incidents activated.`,
-        metrics: {
-          etaImprovement: `${incList.length} crisis nodes`,
-          congestionImpact: `${Object.values((data.resources?.pool ?? {}) as Record<string, number>).reduce((s, v) => s + v, 0)} units`,
-        },
-        afterState: incList.map((i: any) => `${i.type ?? "incident"} (${Math.round((i.confidence ?? 0) * 100)}% conf)`).join(" · ") + " — All AI pipelines active.",
-        sideEffects: incList.map((i: any) => `${i.type ?? "incident"}: ${i.allocatedResources?.ambulance ?? 0}🚑 ${i.allocatedResources?.police ?? 0}🚔 ${i.allocatedResources?.fire ?? 0}🚒 deployed`),
-      };
-    }
-    if (data.results) {
-      const incList = Object.values(data.results) as any[];
-      return {
-        actionTaken: `${data.scenario} — Multi-crisis resource contention demonstrated.`,
-        metrics: {
-          etaImprovement: `${incList.length} concurrent crises`,
-          congestionImpact: `${Object.values((data.resourceContention?.pool ?? {}) as Record<string, number>).reduce((s, v) => s + v, 0)} total units`,
-        },
-        afterState: `Flood + Heatwave incidents triggered simultaneously. Resource contention model active across ${incList.length} sectors.`,
-        sideEffects: incList.map((i: any) => `${i.type ?? "incident"}: ${Math.round((i.confidence ?? 0) * 100)}% conf · ${(i.allocatedResources?.ambulance ?? 0) + (i.allocatedResources?.police ?? 0) + (i.allocatedResources?.fire ?? 0)} units`),
-      };
-    }
-    return {
-      actionTaken: data.scenario ?? data.message ?? "Simulation complete",
-      metrics: { etaImprovement: "—", congestionImpact: "—" },
-      afterState: JSON.stringify(data).slice(0, 200),
-      sideEffects: [],
-    };
-  };
-
-  const runSimulation = async (scenario: typeof SCENARIOS[0]) => {
-    setIsSimulating(true);
-    setActiveSimulation(scenario);
+  const runScenario = async (scenario: (typeof SCENARIOS)[0]) => {
+    setRunning(true);
+    setActiveScenario(scenario);
     setResult(null);
 
     try {
       const body =
         scenario.id === "false-positive"
           ? {
-              incidentId:    `SIM-FP-${Date.now().toString().slice(-4)}`,
-              incidentType:  "social_media_panic",
+              incidentId: `FP-${Date.now().toString().slice(-4)}`,
+              incidentType: "social_media_panic",
               fieldReportId: `FR-${Date.now().toString().slice(-6)}`,
-              alertsSent:    ["SMS", "WhatsApp", "PublicBroadcast"],
+              alertsSent: ["SMS", "WhatsApp", "PublicBroadcast"],
             }
-          : scenario.id === "stress-test" || scenario.id === "disaster" || scenario.id === "world-cup"
-          ? scenario.parameters
-          : {
-              incidentId:  `SIM-${Date.now().toString().slice(-4)}`,
-              actionType:  scenario.actionType,
-              parameters:  scenario.parameters,
-            };
+          : (scenario as any).body ?? {};
 
-      const response = await fetch(scenario.endpoint, {
+      const res = await fetch(scenario.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error("Simulation request failed");
-
-      const data = await response.json();
-      setResult(normalizeSimResult(data));
-    } catch (error) {
-      console.error("Simulation failed", error);
+      if (!res.ok) throw new Error("Scenario request failed");
+      const data = await res.json();
+      setResult(normalizeResult(data, scenario.id));
+    } catch (e) {
+      console.error("Scenario failed", e);
+      setResult({ actionTaken: "Failed to execute scenario — check backend.", metrics: {}, afterState: "", sideEffects: [] });
     } finally {
-      setIsSimulating(false);
+      setRunning(false);
     }
   };
+
+  const severityColor = (s: string) =>
+    s === "CRITICAL" ? "text-red-400 bg-red-500/10 border-red-500/30" :
+    s === "HIGH"     ? "text-orange-400 bg-orange-500/10 border-orange-500/30" :
+                       "text-blue-400 bg-blue-500/10 border-blue-500/30";
+
   return (
-    <div className="flex flex-col gap-6 h-full animate-in fade-in duration-500 overflow-y-auto pb-20 lg:pb-0 lg:overflow-hidden">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
-        <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight">SIMULATION <span className="text-tertiary/50">ENGINES</span></h1>
-        <div className="bg-tertiary/20 px-3 py-1 border border-tertiary/30 rounded-full flex items-center gap-2">
-          <span className="w-2 h-2 bg-tertiary rounded-full animate-pulse"></span>
-          <span className="font-mono text-[10px] md:text-xs text-tertiary font-bold tracking-widest uppercase">Mode: Active</span>
+    <div className="flex flex-col gap-6 h-full animate-in fade-in duration-500 overflow-y-auto pb-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-9 h-9 bg-cyan-500/15 border border-cyan-500/30 rounded-xl flex items-center justify-center">
+              <BookOpen className="w-4 h-4 text-cyan-400" />
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+              Scenario <span className="text-white/30">Playbook</span>
+            </h1>
+          </div>
+          <p className="text-[11px] text-white/40 font-mono uppercase tracking-widest pl-12">
+            Inject real incidents · Test response pipelines · Validate agent coordination
+          </p>
+        </div>
+        <div className="flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/25 px-3 py-1.5 rounded-full">
+          <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
+          <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Live System</span>
         </div>
       </div>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 h-auto lg:h-[55%] shrink-0">
-        {/* Current State */}
-        <div className="bg-surface-container rounded-xl border border-white/5 relative overflow-hidden flex flex-col group min-h-[300px] lg:min-h-0">
-          <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/5 backdrop-blur-md">
-            <span className="font-mono text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-widest truncate">
-              {activeIncidents.length > 0 ? `Live: ${activeIncidents.length} Active Incident${activeIncidents.length > 1 ? "s" : ""}` : "Current Traffic State"}
-            </span>
-            <span className="font-mono text-[10px] md:text-xs text-error font-bold">STATUS: CONGESTED</span>
-          </div>
-          <div className="flex-1 relative min-h-[220px]">
-            {GMAPS_KEY ? (
-              <APIProvider apiKey={GMAPS_KEY}>
-                <Map
-                  mapId="sim-congested"
-                  center={mapCenter}
-                  zoom={activeIncidents.length ? 4 : 2}
-                  disableDefaultUI
-                  gestureHandling="none"
-                  colorScheme="DARK"
-                  style={{ width: "100%", height: "100%" }}
-                >
-                  {activeIncidents.length > 0 ? (
-                    // Live incident data
-                    <>
-                      {activeIncidents.map((inc: any) => (
+      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+        {/* Left — live map + stats */}
+        <div className="flex flex-col gap-4 lg:w-[42%] shrink-0">
+          {/* Live incident map */}
+          <div className="bg-[#14181f] border border-white/10 rounded-2xl overflow-hidden" style={{ minHeight: 280 }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Live Incident Map</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">
+                  {activeIncidents.length} Active
+                </span>
+              </div>
+            </div>
+            <div style={{ height: 220 }}>
+              {GMAPS_KEY ? (
+                <APIProvider apiKey={GMAPS_KEY}>
+                  <Map
+                    mapId="scenario-map"
+                    center={mapCenter}
+                    zoom={activeIncidents.length ? 4 : 2}
+                    disableDefaultUI
+                    gestureHandling="none"
+                    colorScheme="DARK"
+                    style={{ width: "100%", height: "100%" }}
+                  >
+                    {activeIncidents.map((inc: any) => {
+                      const color =
+                        inc.severity === "critical" ? "#ef4444" :
+                        inc.severity === "high"     ? "#f97316" :
+                        inc.severity === "medium"   ? "#3b82f6" : "#22c55e";
+                      return (
                         <React.Fragment key={inc.incidentId}>
                           <Circle
                             center={{ lat: inc.location.lat, lng: inc.location.lng }}
                             radius={inc.radius ?? 1000}
-                            strokeColor="#ff3d3d" strokeOpacity={0.8} strokeWeight={2}
-                            fillColor="#ff3d3d" fillOpacity={0.1}
+                            strokeColor={color} strokeOpacity={0.7} strokeWeight={2}
+                            fillColor={color} fillOpacity={0.08}
                           />
                           <AdvancedMarker position={{ lat: inc.location.lat, lng: inc.location.lng }}>
-                            <div className="w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-pulse shadow-lg shadow-red-500/60" />
+                            <div
+                              style={{
+                                width: 16, height: 16, borderRadius: "50%",
+                                background: color, border: "2px solid rgba(255,255,255,0.4)",
+                                boxShadow: `0 0 10px ${color}`,
+                              }}
+                            />
                           </AdvancedMarker>
                         </React.Fragment>
-                      ))}
-                      {/* Congested routes from AI recommendations */}
-                      <AnimatedPolylineRoute path={CONGESTED_ROUTE} color="#ff3d3d" animated />
-                    </>
-                  ) : (
-                    // Fallback static demo
-                    <>
-                      <AnimatedPolylineRoute path={CONGESTED_ROUTE} color="#ff3d3d" animated />
-                      <Polyline path={[{ lat: 24.875, lng: 67.028 }, { lat: 24.880, lng: 67.035 }]} strokeColor="#ff6b6b" strokeOpacity={0.5} strokeWeight={3} />
-                      <Polyline path={[{ lat: 24.890, lng: 67.048 }, { lat: 24.895, lng: 67.055 }]} strokeColor="#ff6b6b" strokeOpacity={0.5} strokeWeight={3} />
-                      <AdvancedMarker position={INCIDENT_CENTER}>
-                        <div className="w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-pulse shadow-lg shadow-red-500/60" />
-                      </AdvancedMarker>
-                      {AMBULANCE_STATIONS.map((s, i) => (
-                        <AdvancedMarker key={i} position={{ lat: s.lat, lng: s.lng }}>
-                          <div className="text-[11px] px-1.5 py-0.5 bg-red-900/80 border border-red-500/50 rounded text-red-300 font-mono font-bold whitespace-nowrap">🚑 {s.label}</div>
-                        </AdvancedMarker>
-                      ))}
-                    </>
-                  )}
-                </Map>
-              </APIProvider>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-black/30 text-white/30 text-xs font-mono uppercase tracking-widest">
-                Add VITE_GOOGLE_MAPS_API_KEY to .env
-              </div>
-            )}
-            <div className="absolute inset-0 p-6 md:p-8 flex flex-col justify-end bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none">
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl md:text-6xl font-black text-error">14.2</span>
-                <span className="font-mono text-base md:text-lg text-error font-bold tracking-widest">MINS</span>
-              </div>
-              <p className="font-mono text-[10px] md:text-xs uppercase tracking-widest text-on-surface-variant mt-2">Average Response Time — Routes Blocked</p>
-              <div className="mt-4 w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                <div className="w-[85%] h-full bg-error shadow-[0_0_10px_rgba(255,0,0,0.5)]"></div>
-              </div>
+                      );
+                    })}
+                  </Map>
+                </APIProvider>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white/20 text-xs font-mono uppercase tracking-widest">
+                  Add VITE_GOOGLE_MAPS_API_KEY to .env
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Optimized State */}
-        <div className="bg-surface-container rounded-xl border border-primary/30 relative overflow-hidden flex flex-col shadow-[0_0_30px_rgba(255,180,170,0.15)] group min-h-[300px] lg:min-h-0">
-          <div className="p-4 border-b border-primary/20 flex justify-between items-center bg-primary/10 backdrop-blur-md">
-            <span className="font-mono text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest truncate">
-              {liveAlternateRoutes.length > 0 ? `AI Alternate Routes (${liveAlternateRoutes.length})` : "Algorithmic Rerouting Active"}
-            </span>
-            <span className="font-mono text-[10px] md:text-xs text-secondary font-bold">PROJECTED SUCCESS: 94%</span>
+          {/* Live stat strip */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              {
+                label: "Active Incidents",
+                value: incidents.filter((i) => i.status !== "retracted").length,
+                color: "#ef4444",
+                icon: AlertTriangle,
+              },
+              {
+                label: "Critical",
+                value: incidents.filter((i) => i.severity === "critical").length,
+                color: "#f97316",
+                icon: ShieldAlert,
+              },
+              {
+                label: "In Progress",
+                value: incidents.filter((i) => i.status === "active").length,
+                color: "#3b82f6",
+                icon: Activity,
+              },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-[#14181f] border border-white/10 rounded-2xl p-4 flex flex-col gap-2">
+                <stat.icon className="w-3.5 h-3.5" style={{ color: stat.color }} />
+                <p className="text-2xl font-black" style={{ color: stat.color }}>{stat.value}</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-white/30">{stat.label}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex-1 relative min-h-[220px]">
-            {GMAPS_KEY ? (
-              <APIProvider apiKey={GMAPS_KEY}>
-                <Map
-                  mapId="sim-optimized"
-                  center={mapCenter}
-                  zoom={activeIncidents.length ? 4 : 2}
-                  disableDefaultUI
-                  gestureHandling="none"
-                  colorScheme="DARK"
-                  style={{ width: "100%", height: "100%" }}
-                >
-                  {liveAlternateRoutes.length > 0 ? (
-                    // Live AI-recommended alternate routes
-                    <>
-                      {activeIncidents.map((inc: any) => (
-                        <React.Fragment key={inc.incidentId}>
-                          <Circle
-                            center={{ lat: inc.location.lat, lng: inc.location.lng }}
-                            radius={inc.radius ?? 1000}
-                            strokeColor="#00e5ff" strokeOpacity={0.5} strokeWeight={1}
-                            fillColor="#00e5ff" fillOpacity={0.06}
-                          />
-                          <AdvancedMarker position={{ lat: inc.location.lat, lng: inc.location.lng }}>
-                            <div className="w-5 h-5 rounded-full bg-cyan-400 border-2 border-white animate-pulse shadow-lg shadow-cyan-400/60" />
-                          </AdvancedMarker>
-                        </React.Fragment>
-                      ))}
-                      {liveAlternateRoutes.map((r: any, i: number) => (
-                        <AnimatedPolylineRoute
-                          key={r.id ?? i}
-                          path={r.waypoints.map((w: any) => ({ lat: w.lat, lng: w.lng }))}
-                          color={r.status === "clear" ? "#22c55e" : r.status === "congested" ? "#f97316" : "#00e5ff"}
-                          animated
-                        />
-                      ))}
-                      {liveHospitals.slice(0, 5).map((h: any, i: number) => (
-                        <AdvancedMarker key={h.id ?? i} position={{ lat: h.lat, lng: h.lng }}>
-                          <div className="text-[11px] px-1.5 py-0.5 bg-cyan-900/80 border border-cyan-400/50 rounded text-cyan-300 font-mono font-bold whitespace-nowrap">🏥 {h.name}</div>
-                        </AdvancedMarker>
-                      ))}
-                    </>
-                  ) : (
-                    // Fallback static demo
-                    <>
-                      <AnimatedPolylineRoute path={OPTIMIZED_ROUTE} color="#00e5ff" animated />
-                      <Polyline path={[{ lat: 24.870, lng: 66.997 }, { lat: 24.898, lng: 67.025 }]} strokeColor="#4ade80" strokeOpacity={0.7} strokeWeight={3} />
-                      <AdvancedMarker position={INCIDENT_CENTER}>
-                        <div className="w-5 h-5 rounded-full bg-cyan-400 border-2 border-white animate-pulse shadow-lg shadow-cyan-400/60" />
-                      </AdvancedMarker>
-                      {AMBULANCE_STATIONS.map((s, i) => (
-                        <AdvancedMarker key={i} position={{ lat: s.lat, lng: s.lng }}>
-                          <div className="text-[11px] px-1.5 py-0.5 bg-cyan-900/80 border border-cyan-400/50 rounded text-cyan-300 font-mono font-bold whitespace-nowrap">🚑 {s.label}</div>
-                        </AdvancedMarker>
-                      ))}
-                    </>
-                  )}
-                </Map>
-              </APIProvider>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-black/30 text-white/30 text-xs font-mono uppercase tracking-widest">
-                Add VITE_GOOGLE_MAPS_API_KEY to .env
-              </div>
-            )}
-            <div className="absolute inset-0 p-6 md:p-8 flex flex-col justify-end bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none">
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl md:text-6xl font-black text-secondary tracking-tight">08.4</span>
-                <span className="font-mono text-base md:text-lg text-secondary font-bold tracking-widest">MINS</span>
-              </div>
-              <p className="font-mono text-[10px] md:text-xs uppercase tracking-widest text-on-surface-variant mt-2">Maestro Optimized Route (Sigma-4 Applied)</p>
-              <div className="mt-4 w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                <div className="w-[35%] h-full bg-secondary shadow-[0_0_15px_#4b8eff]"></div>
-              </div>
-            </div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-primary/20 blur-[100px] pointer-events-none"></div>
-          </div>
-        </div>
-      </div>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
-        <div className="col-span-12 lg:col-span-8 bg-surface-container rounded-xl border border-white/5 flex flex-col p-4 md:p-6 shadow-inner min-h-[300px] lg:min-h-0">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h3 className="font-mono text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Resource Reallocation Trace (Sankey)</h3>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary ring-2 ring-primary/20"></span> <span className="font-mono text-[8px] md:text-[9px] uppercase tracking-wider">Medical</span></div>
-              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-tertiary ring-2 ring-tertiary/20"></span> <span className="font-mono text-[8px] md:text-[9px] uppercase tracking-wider">Logistics</span></div>
-              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-secondary ring-2 ring-secondary/20"></span> <span className="font-mono text-[8px] md:text-[9px] uppercase tracking-wider">Security</span></div>
-            </div>
-          </div>
-          
-          <div className="flex-1 flex flex-col justify-center gap-6 relative min-h-[200px]">
-            <div className="grid grid-cols-3 gap-8 h-32 items-center">
-              <div className="space-y-4">
-                <div className="p-3 bg-white/5 border border-white/5 rounded backdrop-blur-sm">
-                  <p className="font-mono text-[9px] mb-1 font-bold">STATION ALPHA</p>
-                  <div className="h-1.5 w-full bg-primary-container/20 rounded-full overflow-hidden">
-                    <div className="h-full w-full bg-primary shadow-[0_0_8px_rgba(255,180,170,0.5)]"></div>
+          {/* Resource allocation strip */}
+          <div className="bg-[#14181f] border border-white/10 rounded-2xl p-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-3">Resource Deployment</p>
+            <div className="space-y-2">
+              {[
+                { label: "SREs",     key: "sre",      color: "#ef4444", emoji: "🛠" },
+                { label: "SecEng",   key: "seceng",   color: "#3b82f6", emoji: "🔒" },
+                { label: "Data Eng", key: "dataeng",  color: "#f97316", emoji: "🗄" },
+              ].map(({ label, key, color, emoji }) => {
+                const total = incidents.reduce((s: number, i: any) => s + (i.allocatedResources?.[key] ?? 0), 0);
+                return (
+                  <div key={key} className="flex items-center gap-3">
+                    <span className="text-xs w-4">{emoji}</span>
+                    <span className="text-[9px] font-bold text-white/40 uppercase w-14">{label}</span>
+                    <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${Math.min(100, total * 10)}%`, backgroundColor: color }}
+                      />
+                    </div>
+                    <span className="text-[9px] font-black font-mono" style={{ color }}>{total}</span>
                   </div>
-                </div>
-                <div className="p-3 bg-white/5 border border-white/5 rounded backdrop-blur-sm">
-                  <p className="font-mono text-[9px] mb-1 font-bold">LOGISTICS HUB B</p>
-                  <div className="h-1.5 w-full bg-tertiary/20 rounded-full overflow-hidden">
-                    <div className="h-full w-2/3 bg-tertiary shadow-[0_0_8px_rgba(241,193,0,0.5)]"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-center items-center gap-4 py-4">
-                <div className="w-full h-8 bg-gradient-to-r from-primary/20 via-tertiary/40 to-secondary/20 blur-md rounded-full opacity-60"></div>
-                <div className="w-full h-12 bg-gradient-to-r from-primary/30 via-tertiary/50 to-secondary/30 rounded-full shadow-[0_0_20px_rgba(241,193,0,0.2)]"></div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="p-3 bg-primary/5 border border-primary/30 rounded relative group transition-all hover:bg-primary/10">
-                  <p className="font-mono text-[9px] mb-1 text-primary font-black uppercase">Sector 4 (Priority)</p>
-                  <p className="font-mono text-[8px] text-on-surface-variant tracking-widest">+42% Capacity</p>
-                </div>
-                <div className="p-3 bg-white/5 border border-white/5 rounded backdrop-blur-sm">
-                  <p className="font-mono text-[9px] mb-1 font-bold">DISTRICT G</p>
-                  <p className="font-mono text-[8px] text-error font-bold tracking-widest">-15% DEFERRED</p>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        <div className="col-span-4 bg-surface-container rounded-xl border border-white/5 flex flex-col overflow-hidden relative">
-          <div className="p-3 bg-surface-container-high border-b border-white/5 flex justify-between items-center">
-            <span className="font-mono text-[9px] font-bold text-on-surface-variant uppercase tracking-widest">
-              Action Simulator
-            </span>
-            {result && (
-              <button 
-                onClick={() => setResult(null)}
-                className="text-[8px] font-black text-primary uppercase tracking-widest hover:underline"
+        {/* Right — scenario list + result panel */}
+        <div className="flex-1 flex flex-col gap-4 min-h-0">
+          {/* Scenario list */}
+          <AnimatePresence mode="wait">
+            {!running && !result ? (
+              <motion.div
+                key="list"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex-1 overflow-y-auto space-y-3 pr-1"
               >
-                Reset
-              </button>
-            )}
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-            <AnimatePresence mode="wait">
-              {!activeSimulation || (!isSimulating && !result) ? (
-                <motion.div 
-                  key="launcher"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="space-y-4"
-                >
-                  <p className="text-[10px] text-on-surface-variant font-mono uppercase tracking-widest mb-4 opacity-60">Select Tactical Scenario</p>
-                  {SCENARIOS.map((scenario) => (
-                    <button
-                      key={scenario.id}
-                      onClick={() => runSimulation(scenario)}
-                      disabled={isSimulating}
-                      className="w-full text-left p-4 bg-white/5 border border-white/5 rounded-2xl group hover:border-primary/40 transition-all active:scale-[0.98] relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Play className="w-8 h-8 text-primary" />
+                <p className="text-[10px] text-white/30 font-mono uppercase tracking-widest mb-2">
+                  Select a scenario to inject into the live system
+                </p>
+                {SCENARIOS.map((scenario) => (
+                  <button
+                    key={scenario.id}
+                    onClick={() => runScenario(scenario)}
+                    disabled={running}
+                    className={cn(
+                      "w-full text-left p-4 bg-[#14181f] border border-white/8 rounded-2xl group hover:border-cyan-500/40 hover:bg-[#1a1f29] transition-all active:scale-[0.99] relative overflow-hidden"
+                    )}
+                  >
+                    {/* glow accent */}
+                    <div
+                      className="absolute top-0 left-0 bottom-0 w-1 rounded-l-2xl"
+                      style={{ backgroundColor: scenario.color }}
+                    />
+                    <div className="pl-3">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xl">{scenario.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className={cn(
+                                "text-[8px] font-black px-2 py-0.5 rounded border uppercase tracking-widest",
+                                severityColor(scenario.severity)
+                              )}
+                            >
+                              {scenario.severity}
+                            </span>
+                            {scenario.tags.map((t) => (
+                              <span key={t} className="text-[8px] font-bold text-white/20 uppercase">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                          <h4 className="text-sm font-black text-white group-hover:text-cyan-300 transition-colors leading-snug">
+                            {scenario.title}
+                          </h4>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <div className="w-8 h-8 bg-cyan-500/15 border border-cyan-500/30 rounded-xl flex items-center justify-center">
+                            <Play className="w-3.5 h-3.5 text-cyan-400" />
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={cn(
-                          "text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest",
-                          scenario.type === "CRITICAL" ? "bg-error/20 text-error" : "bg-tertiary/20 text-tertiary"
-                        )}>
-                          {scenario.type}
-                        </span>
-                        <span className="text-[9px] font-mono text-white/30 uppercase">{scenario.actionType}</span>
-                      </div>
-                      <h4 className="text-sm font-bold text-white group-hover:text-primary transition-colors mb-2">{scenario.title}</h4>
-                      <p className="text-[10px] text-on-surface-variant font-mono leading-relaxed line-clamp-2">
+                      <p className="text-[10px] text-white/40 font-mono leading-relaxed line-clamp-2">
                         {scenario.description}
                       </p>
-                    </button>
-                  ))}
-                </motion.div>
-              ) : isSimulating ? (
-                <motion.div 
-                  key="loading"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="h-full flex flex-col items-center justify-center py-10"
-                >
-                  <div className="relative mb-6">
-                    <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                    <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full"></div>
-                  </div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] mb-2 animate-pulse">Simulating Scenario</h3>
-                  <p className="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest text-center">
-                    Agent Core: Processing {activeSimulation?.title}...
+                    </div>
+                  </button>
+                ))}
+              </motion.div>
+            ) : running ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex-1 flex flex-col items-center justify-center gap-6 bg-[#14181f] border border-white/10 rounded-2xl"
+              >
+                <div className="relative">
+                  <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
+                  <div className="absolute inset-0 bg-cyan-400/20 blur-2xl rounded-full" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-black text-white uppercase tracking-[0.2em] mb-2">
+                    Injecting Scenario
                   </p>
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="result"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6 pb-6"
-                >
-                  <div className="flex items-center gap-3 p-4 bg-primary/10 border border-primary/20 rounded-2xl">
-                    <CheckCircle2 className="w-6 h-6 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-black text-white uppercase">Simulation Complete</h4>
-                      <p className="text-[9px] font-mono text-primary font-bold uppercase tracking-widest truncate">ARES Outcome Delta v.1.2</p>
+                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
+                    {activeScenario?.title}
+                  </p>
+                  <p className="text-[9px] text-white/20 font-mono mt-2">
+                    Multi-agent pipeline processing…
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="result"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex-1 overflow-y-auto space-y-4 pr-1"
+              >
+                {/* Success header */}
+                <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-white uppercase">Scenario Completed</p>
+                    <p className="text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-widest truncate">
+                      {activeScenario?.title}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setResult(null); setActiveScenario(null); }}
+                    className="text-[9px] font-black text-white/30 uppercase tracking-widest hover:text-white transition-colors shrink-0"
+                  >
+                    ↺ Reset
+                  </button>
+                </div>
+
+                {/* Metrics */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: result?.metrics?.etaLabel ?? "ETA Improvement", value: result?.metrics?.eta ?? "—", color: "#22c55e" },
+                    { label: result?.metrics?.impactLabel ?? "Impact", value: result?.metrics?.impact ?? "—", color: "#00e5ff" },
+                  ].map((m) => (
+                    <div key={m.label} className="bg-[#14181f] border border-white/10 rounded-xl p-4">
+                      <p className="text-[8px] font-black uppercase text-white/30 mb-1">{m.label}</p>
+                      <p className="text-lg font-black" style={{ color: m.color }}>{m.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action taken */}
+                <div className="bg-[#14181f] border border-white/10 rounded-xl p-4">
+                  <p className="text-[9px] font-black uppercase text-white/30 tracking-widest mb-2 flex items-center gap-2">
+                    <TrendingUp className="w-3 h-3" /> Actions Taken
+                  </p>
+                  <p className="text-xs text-white/80 font-mono leading-relaxed border-l-2 border-cyan-500/50 pl-3 italic">
+                    "{result?.actionTaken}"
+                  </p>
+                </div>
+
+                {/* After state */}
+                {result?.afterState && (
+                  <div className="bg-[#14181f] border border-white/10 rounded-xl p-4">
+                    <p className="text-[9px] font-black uppercase text-white/30 tracking-widest mb-2">System State</p>
+                    <p className="text-[11px] text-white/60 font-mono leading-relaxed">
+                      {result.afterState}
+                    </p>
+                  </div>
+                )}
+
+                {/* Side effects */}
+                {result?.sideEffects?.length > 0 && (
+                  <div className="bg-[#14181f] border border-white/10 rounded-xl p-4">
+                    <p className="text-[9px] font-black uppercase text-white/30 tracking-widest mb-3">Deployed Resources</p>
+                    <div className="space-y-2">
+                      {result.sideEffects.map((fx: string, i: number) => (
+                        <div key={i} className="flex items-start gap-2 text-[10px] text-white/50 font-mono">
+                          <div className="w-1 h-1 bg-cyan-400 rounded-full mt-1.5 shrink-0" />
+                          {fx}
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">Action Taken</span>
-                      <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
-                        <p className="text-xs text-on-surface/90 font-medium leading-relaxed italic border-l-2 border-primary pl-3">
-                          "{result.actionTaken}"
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
-                        <span className="text-[8px] font-black uppercase text-white/30 block mb-1">ETA Improve</span>
-                        <p className="text-sm font-black text-secondary">{result.metrics?.etaImprovement}</p>
-                      </div>
-                      <div className="p-3 bg-white/5 border border-white/5 rounded-xl">
-                        <span className="text-[8px] font-black uppercase text-white/30 block mb-1">Impact</span>
-                        <p className="text-sm font-black text-primary">{result.metrics?.congestionImpact}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">Future State (T+1h)</span>
-                      <p className="text-[11px] text-on-surface-variant font-mono leading-relaxed bg-black/20 p-3 rounded-xl">
-                        {result.afterState}
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">Side Effects</span>
-                      <div className="space-y-2">
-                        {result.sideEffects?.map((effect: string, i: number) => (
-                          <div key={i} className="flex items-center gap-2 text-[10px] text-on-surface-variant font-mono">
-                            <div className="w-1 h-1 bg-tertiary rounded-full shadow-[0_0_5px_rgba(241,193,0,0.5)]"></div>
-                            {effect}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      <footer className="h-10 border-t border-white/10 bg-surface-container-lowest px-4 flex items-center justify-between text-on-surface-variant">
-        <div className="flex gap-8">
-          <div className="flex gap-3 items-center">
-            <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] opacity-50">CPU Load</span>
-            <span className="font-mono text-[10px] text-secondary font-bold">42.8%</span>
-          </div>
-          <div className="flex gap-3 items-center">
-            <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] opacity-50">Bandwidth</span>
-            <span className="font-mono text-[10px] text-secondary font-bold">1.2 GB/s</span>
-          </div>
+      {/* Status footer */}
+      <div className="flex items-center justify-between border-t border-white/8 pt-3">
+        <div className="flex items-center gap-2">
+          <motion.div
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.6)]"
+          />
+          <span className="text-[9px] font-bold uppercase tracking-widest text-white/30">
+            Live Agent Pipeline · All Systems Nominal
+          </span>
         </div>
-        <div className="flex items-center gap-3">
-          <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }} className="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_#4b8eff]"></motion.div>
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">Encrypted Telemetry Stream Active</span>
+        <div className="flex items-center gap-1.5">
+          <Zap className="w-3 h-3 text-cyan-400/60" />
+          <span className="text-[9px] font-mono text-white/20">{incidents.length} incidents tracked</span>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }

@@ -1,15 +1,13 @@
 # Build + push the Maestro image with client-side VITE keys baked in.
-# Runtime secrets are set separately at `gcloud run deploy --image ... --env-vars-file`.
+# Runtime secrets (OPERATOR_API_KEY, JWT_SECRET, etc.) are set at deploy time.
 # Usage: gcloud builds submit --config cloudbuild-deploy.yaml \
-#          --substitutions=_MAPS=<maps_key>,_OPKEY=<operator_key>
+#          --substitutions=_MAPS=<maps_key>
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '--build-arg'
       - 'VITE_GOOGLE_MAPS_API_KEY=${_MAPS}'
-      - '--build-arg'
-      - 'VITE_OPERATOR_KEY=${_OPKEY}'
       - '-t'
       - 'gcr.io/$PROJECT_ID/maestro-backend:latest'
       - '.'
@@ -21,4 +19,3 @@ options:
   logging: CLOUD_LOGGING_ONLY
 substitutions:
   _MAPS: ''
-  _OPKEY: ''

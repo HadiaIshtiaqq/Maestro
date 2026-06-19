@@ -21,8 +21,9 @@ foreach ($required in @('MONGODB_URI', 'GEMINI_API_KEY', 'JWT_SECRET', 'OPERATOR
 Write-Host "Logging in to Google Cloud..." -ForegroundColor Cyan
 gcloud auth login
 
-# Set project
-gcloud config set project phonic-scheme-496507-d2
+# Set GCP project (or export GCP_PROJECT_ID before running)
+$project = if ($env:GCP_PROJECT_ID) { $env:GCP_PROJECT_ID } else { "phonic-scheme-496507-d2" }
+gcloud config set project $project
 
 # Enable APIs
 Write-Host "Enabling Cloud Run APIs..." -ForegroundColor Cyan

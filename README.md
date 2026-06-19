@@ -47,6 +47,14 @@ npx tsx scenarios/demo_runner.ts all   # fires 3 demo scenarios
 
 **Operator view:** http://localhost:3000 — select an incident → **Band Room** tab for the live coordination feed and approval gate.
 
+On first privileged action (approve, reset demo, etc.), the dashboard prompts for your **operator key** — the same value as `OPERATOR_API_KEY` in `.env`. It is stored in browser `localStorage` only, never shipped in the JS bundle.
+
+```bash
+npm test          # unit + integration tests (Vitest)
+npm run lint      # TypeScript strict check
+npm run build     # production UI + server bundle
+```
+
 ### Environment variables
 
 | Variable | Purpose |
@@ -55,26 +63,26 @@ npx tsx scenarios/demo_runner.ts all   # fires 3 demo scenarios
 | `ANTHROPIC_API_KEY` | Validation agent (Claude). Unset → falls back to Gemini, recorded in the trace |
 | `MONGODB_URI` | Incident + audit persistence |
 | `JWT_SECRET` | Mobile-user auth. **Required in production** (server refuses to boot without it); dev uses a random per-boot secret |
-| `OPERATOR_API_KEY` | Protects approve/veto + operator routes (`x-operator-key` header). Unset → open, with a startup warning — set it before hosting publicly. Demo-grade shared key (the web UI ships it client-side); production would use per-user auth |
-| `VITE_OPERATOR_KEY` | Same value, exposed to the operator web UI |
+| `OPERATOR_API_KEY` | Protects approve/veto + operator routes (`x-operator-key` header). **Required in production** (server refuses to boot without it). Enter at runtime in the operator web UI — never bake into the client bundle |
 | `VITE_GOOGLE_MAPS_API_KEY` | Dashboard maps (restrict by HTTP referrer) |
 | `BAND_USE_SDK`, `BAND_API_URL`, `BAND_API_KEY` | Switch from the mock Band adapter to the real Band platform (credentials from kickoff) |
 | `AIML_API_KEY`, `FEATHERLESS_API_KEY` | Cross-framework partner providers (agents fall back to Gemini when unset) |
-| `CORS_ORIGIN` | Comma-separated CORS allowlist (unset = open; set for public hosting) |
+| `CORS_ORIGIN` | Comma-separated CORS allowlist (unset = open in dev; **set for public hosting**) |
 | `LIVE_DATA_POLLING` | `true` enables real GDACS/USGS/Open-Meteo ingestion (off by default — each event runs the full pipeline) |
+
+See [SECURITY.md](SECURITY.md) for operator-key handling, protected routes, and secret rotation.
 
 ## Key API Endpoints
 
 ```
-POST /api/ingest-signal                        Signal intake (zod-validated, rate-limited;
-                                               body {"async": true} → 202 + background pipeline;
-                                               same-type signals within 15 min attach to the
-                                               existing incident instead of opening a new room)
-GET  /api/band/rooms/by-incident/:id           Band room + message trail
-GET  /api/band/audit-trail/:incidentId         Compliance export
+POST /api/ingest-signal                        Signal intake (Zod-validated, rate-limited; public)
+GET  /api/band/rooms/by-incident/:id           Band room + message trail (read)
+GET  /api/band/audit-trail/:incidentId         Compliance export (operator key required)
 GET  /api/band/approvals/pending               Actions awaiting approval
 POST /api/band/approve  { proposalMsgId }      Human Commander approval  (operator key required)
 POST /api/band/veto     { proposalMsgId }      Human Commander veto      (operator key required)
+POST /api/admin/reset-demo                       Clear board for demo recording (operator key required)
+POST /api/verify-status                          Retract / close incident (operator key required)
 ```
 
 ## Demo Scenarios
@@ -124,7 +132,7 @@ Enforced in `post()`; `approve`/`veto` HTTP routes additionally require the oper
 
 ## Resource Pool
 
-Shared on-call headcount, contended across concurrent incidents ([src/services/resourceManager.ts](src/services/resourceManager.ts)): 12 SREs, 6 security engineers, 4 data engineers, 3 incident commanders, 2 compliance officers. Higher-priority incidents can reclaim units from lower-priority ones; every reallocation is recorded in the trace log. The pool is in-memory (resets on restart) — production would persist it to Redis/MongoDB.
+Shared on-call headcount, contended across concurrent incidents ([src/services/resourceManager.ts](src/services/resourceManager.ts)): 12 SREs, 6 security engineers, 4 data engineers, 3 incident commanders, 2 compliance officers. Higher-priority incidents can reclaim units from lower-priority ones; every reallocation is recorded in the trace log. The pool is in-memory (resets on restart) — production would persist it to MongoDB or Redis.
 
 ## Failure Behavior (honest mode)
 
@@ -135,12 +143,13 @@ Shared on-call headcount, contended across concurrent incidents ([src/services/r
 ## Known Limitations
 
 - `MockBandAdapter` is the default until Band platform credentials are wired in (`BAND_USE_SDK=true`).
-- The audit trail is durable (mirror is awaited before a message is considered posted) but not cryptographically immutable — no hash chain.
+- The audit trail is mirrored to MongoDB and protected by a **SHA-256 hash chain** per room; export verifies integrity but is not a blockchain or WORM store.
 - The "social/traffic feed" panels in the signal-input UI are **AI-generated simulations**, labeled as such in the response.
 - Autonomous-action side-effects (PagerDuty paging, Slack war-rooms, SMS retractions) are **simulated** (`simulated: true` on every record) — the decision logic is real, the integrations are demo stand-ins.
 - Cross-signal dedup keys on signal `type` within a 15-minute window — two *distinct* incidents of the same type in that window would merge. Production would key on type + affected service.
 - Resource pool and approval gates are in-memory; single-node only.
-- The Expo mobile app (`mobile/`) is a companion citizen-reporting client and not part of the Track 3 submission scope. Set `EXPO_PUBLIC_API_URL` for LAN development.
+- Operator auth is a shared API key (demo-grade). Production would use per-user identity (SSO/OIDC).
+- The Expo mobile app (`mobile/`) is a companion citizen-reporting client and not part of the Track 3 submission scope. Set `EXPO_PUBLIC_API_URL` for LAN development; production builds use `EXPO_PUBLIC_API_URL` if set.
 
 ## Cost & Latency
 
@@ -158,7 +167,7 @@ Pipelines for separate incidents run concurrently (`ConcurrentOrchestrator`); st
 Maestro/
 ├── src/
 │   ├── band/
-│   │   ├── adapter.ts          # MockBandAdapter + BandSdkAdapter + singleton selection
+│   │   ├── adapter.ts          # MockBandAdapter + BandSdkAdapter + hash-chain audit
 │   │   └── types.ts            # BandMessage, BandRoom, AUTHORITY_RULES, IBandAdapter
 │   ├── agents/
 │   │   ├── AntigravityCore.ts  # Orchestrators, GeminiAgent, ClaudeAgent
@@ -168,13 +177,33 @@ Maestro/
 │   │   ├── approvalService.ts  # Human approval gates (promise-based, 5-min auto-veto)
 │   │   ├── resourceManager.ts  # Priority-based shared responder pool
 │   │   └── geminiService.ts    # Gemini wrapper: retries, cache, degraded fallbacks
+│   ├── lib/
+│   │   ├── validationSchemas.ts # Zod schemas for API POST bodies
+│   │   └── operatorFetch.ts    # Runtime operator-key client (not baked into bundle)
 │   ├── components/             # Operator web UI (BandRoomTimeline = approval gate UI)
-│   └── routes/index.ts         # API routes (operator routes behind OPERATOR_API_KEY)
+│   └── routes/index.ts         # API routes (privileged routes behind OPERATOR_API_KEY)
+├── shared/mockIncidents.ts     # Shared mock fixtures (web + mobile)
+├── tests/                      # Vitest: band adapter, approval, auth, rate limit
 ├── scenarios/demo_runner.ts    # 3 hackathon demo scenarios
 ├── mobile/                     # Expo companion app (out of submission scope)
+├── docker-compose.yml          # Local monolith + MongoDB
+├── SECURITY.md                 # Secrets, operator key, protected routes
 └── server.ts                   # Express + Socket.IO + Band room rehydration
 ```
+
+## CI
+
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push/PR to `main`:
+
+- `npm run lint` (strict TypeScript)
+- `npm test` (37 unit/integration tests)
+- `npm run build` (production bundle)
 
 ## License
 
 MIT — see [LICENSE](./LICENSE)
+
+## Contributing & security
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, PR checklist, conventions
+- [SECURITY.md](SECURITY.md) — secrets, operator key, protected routes

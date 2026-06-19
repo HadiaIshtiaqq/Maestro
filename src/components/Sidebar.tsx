@@ -17,12 +17,12 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { id: "intelligence", name: "Intelligence",      icon: BrainCircuit },
-  { id: "tactical",     name: "Tactical Map",       icon: MapIcon      },
-  { id: "trace",        name: "Logic Trace",        icon: Activity     },
-  { id: "simulations",  name: "Simulations",        icon: Cpu          },
-  { id: "command",      name: "Incident Command",   icon: ShieldAlert  },
-  { id: "reporting",    name: "Report Incident",    icon: HelpCircle   },
+  { id: "intelligence", name: "Intelligence",        icon: BrainCircuit },
+  { id: "tactical",     name: "Tactical Map",         icon: MapIcon      },
+  { id: "trace",        name: "Logic Trace",          icon: Activity     },
+  { id: "scenarios",    name: "Scenario Playbook",    icon: Cpu          },
+  { id: "command",      name: "Incident Command",     icon: ShieldAlert  },
+  { id: "reporting",    name: "Report Incident",      icon: HelpCircle   },
 ];
 
 export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen, incidentCount = 0, criticalCount = 0 }: SidebarProps) {

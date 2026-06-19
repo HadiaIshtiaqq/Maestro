@@ -75,9 +75,7 @@ What makes it Track-3-grade:
    SEV-2 forces a human gate — the AI cannot skip it. The pipeline is blocked."
    Click **Approve** as Human Commander. Comms agent runs, incident goes active.
 
-5. **The audit trail (2:20–2:50).** Open `/api/band/audit-trail/:id`. "Every
-   message, every agent, the human approval with notes and timestamp — one export,
-   regulator-ready."
+5. **The audit trail (2:20–2:50).** Open `/api/band/audit-trail/:id` (operator key required). "Every message, every agent, the human approval with notes and timestamp — one export, regulator-ready, hash-chain verified."
 
 6. **Close (2:50–3:00).** "Eleven agents, four AI frameworks, one Band room, one
    accountable human. That's governed multi-agent incident response."
@@ -96,12 +94,22 @@ What makes it Track-3-grade:
 
 ## Submission Checklist (status)
 - [x] **Public GitHub repo** — https://github.com/HadiaIshtiaqq/Maestro
-- [x] **Demo application URL** — https://maestro-backend-1010212017317.us-central1.run.app (Cloud Run; UI + API live, Atlas connected, operator routes auth-protected)
+- [x] **Demo application URL** — https://maestro-backend-1010212017317.us-central1.run.app (Cloud Run; UI + API live, Atlas connected)
+- [x] **Security hardening** — operator routes auth-protected; secrets not in repo; CI runs lint + 37 tests + build ([SECURITY.md](SECURITY.md))
 - [x] **Band integration verified on the real platform** — multi-identity agents post live; human/reviewer approval flows back through Band (audit shows "via Band")
 - [ ] Video presentation — script above
-- [ ] Slide presentation — outline above
+- [ ] Slide presentation — outline in [SLIDES.md](SLIDES.md)
 - [ ] Cover image
 - [x] Project title / short / long description / tags — above
+
+## Accessing the live demo
+
+1. Open the **demo URL** in a browser.
+2. On first privileged action (approve, reset, audit export), enter your **operator key** when prompted — this is the `OPERATOR_API_KEY` value configured on Cloud Run (not stored in the repo).
+3. For `curl` against protected routes:
+   ```bash
+   curl -H "x-operator-key: $OPERATOR_API_KEY" https://<host>/api/band/audit-trail/<incidentId>
+   ```
 
 ## Demo-day notes (important)
 - **Prod is slow (~5-6 min/incident):** each agent step is ~20-30s on Cloud Run
@@ -110,10 +118,11 @@ What makes it Track-3-grade:
   locally (~60-90s/incident) and show the deployed URL separately. Bump Cloud
   Run CPU/concurrency if you want prod faster.
 - **Warm up first:** min-instances=0 means a ~10s cold start on the first hit.
-- **Clean board:** `curl -X POST <url>/api/admin/reset-demo -H "x-operator-key: <OPERATOR_API_KEY>"`.
+- **Clean board:** `curl -X POST <url>/api/admin/reset-demo -H "x-operator-key: $OPERATOR_API_KEY" -H "Content-Type: application/json" -d '{}'`
 - **Human approval beat:** keep `BAND_ALLOW_AGENT_APPROVAL=false`; reply "approve"
   in the Band chat as yourself — Maestro reads it back and releases the gate.
-- **Rotate all secrets after the hackathon** (they're in the Cloud Run env + were shared during setup).
+- **Secrets:** no API keys or operator keys belong in git. Rotate Cloud Run env
+  vars if any credential was shared during hackathon setup or demo recording.
 
 ## Partner-prize angle
 Route the dependency-impact and runbook agents through AI/ML API and Featherless

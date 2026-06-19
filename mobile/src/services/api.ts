@@ -1,6 +1,4 @@
-const PROD_URL = 'https://maestro-backend-1010212017317.us-central1.run.app';
-// Dev: set EXPO_PUBLIC_API_URL in mobile/.env to your machine's LAN address
-// (e.g. EXPO_PUBLIC_API_URL=http://192.168.1.50:3000) instead of editing code.
+const PROD_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://maestro-backend-1010212017317.us-central1.run.app';
 const DEV_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 export const BASE_URL = __DEV__ ? DEV_URL : PROD_URL;
 

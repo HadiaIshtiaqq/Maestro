@@ -9,6 +9,7 @@ import cors from "cors";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { config } from "./src/config/index";
+import { redactMongoUri } from "./src/lib/authUtils";
 import routes from "./src/routes/index";
 import userRoutes from "./src/routes/users";
 import { setupSocketHandlers } from "./src/events/socketHandlers";
@@ -52,7 +53,7 @@ async function startServer() {
     await mongoose.connect(config.mongodb.uri, {
       serverSelectionTimeoutMS: 30000,
     });
-    console.log("[MongoDB] Connected to", config.mongodb.uri);
+    console.log("[MongoDB] Connected to", redactMongoUri(config.mongodb.uri));
     // Auto-seed demo data if the DB is empty (never silently in production)
     if (config.env !== "production" || process.env.SEED_DEMO === "true") {
       await seedDemoIncidents();

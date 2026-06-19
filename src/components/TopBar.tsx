@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronDown, RefreshCw, Bell, BrainCircuit, Map as MapIcon,
-  Activity, Cpu, ShieldAlert, HelpCircle, Zap, AlertTriangle,
+  Activity, Cpu, ShieldAlert, HelpCircle, Zap,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -39,12 +39,12 @@ const MODES: { value: AppMode; label: string; cls: string; activeClass: string }
 ];
 
 const NAV_VIEWS = [
-  { id: "intelligence", label: "Intelligence", Icon: BrainCircuit },
-  { id: "tactical",     label: "Tactical Map", Icon: MapIcon      },
-  { id: "trace",        label: "Logic Trace",  Icon: Activity     },
-  { id: "simulations",  label: "Simulations",  Icon: Cpu          },
-  { id: "command",      label: "Command",      Icon: ShieldAlert  },
-  { id: "reporting",    label: "Reporting",    Icon: HelpCircle   },
+  { id: "intelligence", label: "Intelligence",     Icon: BrainCircuit },
+  { id: "tactical",     label: "Tactical Map",     Icon: MapIcon      },
+  { id: "trace",        label: "Logic Trace",      Icon: Activity     },
+  { id: "scenarios",    label: "Scenario Playbook",Icon: Cpu          },
+  { id: "command",      label: "Command",          Icon: ShieldAlert  },
+  { id: "reporting",    label: "Reporting",         Icon: HelpCircle   },
 ];
 
 export default function TopBar({
@@ -165,19 +165,7 @@ export default function TopBar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Simulate buttons */}
-      <div className="hidden lg:flex gap-1">
-        <button
-          onClick={async () => { try { await fetch("/api/simulate/disaster", { method: "POST" }); } catch {} }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-800/50 text-red-400 text-[9px] font-black uppercase tracking-wider hover:bg-red-900/30 transition-all">
-          <AlertTriangle className="w-3 h-3" />Cascading Failure
-        </button>
-        <button
-          onClick={async () => { try { await fetch("/api/simulate/world-cup", { method: "POST" }); } catch {} }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-yellow-800/50 text-yellow-400 text-[9px] font-black uppercase tracking-wider hover:bg-yellow-900/30 transition-all">
-          ⚡ Peak Event
-        </button>
-      </div>
+
 
       <div className="w-px h-6 bg-white/8 flex-shrink-0" />
 

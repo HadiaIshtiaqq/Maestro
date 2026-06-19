@@ -21,6 +21,11 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true
+  },
+  "include": ["src", "server.ts", "tests", "shared"],
+  "exclude": ["mobile", "dist", "node_modules"]
 }

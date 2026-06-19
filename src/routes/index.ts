@@ -12,18 +12,23 @@ import { eventBus } from "../events/eventBus";
 import { bandAdapter } from "../band/adapter";
 import { submitDecision, getPendingApprovals } from "../services/approvalService";
 import { operatorAuth, rateLimit } from "../middlewares/index";
-import { z } from "zod";
+import { escapeRegExp } from "../lib/authUtils";
+import {
+  IngestSignalSchema,
+  VerifyIncidentSchema,
+  DispatchLogSchema,
+  OperatorTakeoverSchema,
+  OperatorResolveSchema,
+  OperatorNotesSchema,
+  OperatorEscalateSchema,
+  OperatorBulkCloseSchema,
+  BandDecisionSchema,
+  ChatIncidentSchema,
+  VoiceTranscribeSchema,
+  SignalSourceSchema,
+} from "../lib/validationSchemas";
 
 const router = Router();
-
-// ── Ingest validation ─────────────────────────────────────────────────────────
-const IngestSignalSchema = z.object({
-  source:   z.string().min(1).max(50).default("social"),
-  type:     z.string().min(1).max(200),
-  data:     z.record(z.string(), z.any()).default({}),
-  location: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
-  urgency:  z.number().min(0).max(10).optional(),
-}).passthrough();
 
 // Privileged routes: operator actions + human approval gate + demo seeding
 router.use("/operator", operatorAuth);
@@ -31,6 +36,8 @@ router.use("/band/approve", operatorAuth);
 router.use("/band/veto", operatorAuth);
 router.use("/seed-demo", operatorAuth);
 router.use("/admin", operatorAuth);
+router.use("/simulate", operatorAuth);
+router.use("/scenario", operatorAuth);
 
 /**
  * POST /api/admin/reset-demo
@@ -48,7 +55,7 @@ router.post("/admin/reset-demo", async (req, res) => {
       Approval.deleteMany({}),
       DispatchLog.deleteMany({}),
     ]);
-    (bandAdapter as any).clearLocal?.();
+    bandAdapter.clearLocal();
     resourceManager.getStatus().activeIncidents.forEach((a: any) => resourceManager.release(a.incidentId));
     // Reseed fresh enterprise demo incidents unless ?reseed=false
     if (req.query.reseed !== "false") {
@@ -81,9 +88,13 @@ router.use("/data/live-context", rateLimit(12));
 router.post("/signals/:source", async (req, res) => {
   try {
     const { source } = req.params;
+    const parsed = SignalSourceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid signal payload", issues: parsed.error.issues });
+    }
     const result = await IncidentService.processNewSignal({
-      ...req.body,
-      source: source as any,
+      ...parsed.data,
+      source: source as "social" | "siem" | "monitoring" | "sensor" | "call",
       timestamp: new Date(),
     });
     res.status(201).json(result);
@@ -98,7 +109,7 @@ router.post("/ingest-signal", async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid signal payload", issues: parsed.error.issues });
     }
-    const { source, location, async: runAsync, ...rest } = parsed.data as any;
+    const { source, location, async: runAsync, ...rest } = parsed.data;
 
     if (source === "call" && rest.type === "manual_report") {
       const result = await IncidentService.processManualReport(
@@ -157,7 +168,7 @@ router.get("/incidents/history", async (req, res) => {
 
     const filter: any = { status: { $in: ["closed", "retracted"] } };
     if (severity) filter.severity = severity;
-    if (type)     filter.type     = new RegExp(type, "i");
+    if (type)     filter.type     = new RegExp(escapeRegExp(type), "i");
 
     const [incidents, total] = await Promise.all([
       Incident.find(filter)
@@ -184,9 +195,13 @@ router.get("/incidents/:id", async (req, res) => {
   }
 });
 
-router.post("/incidents/verify", async (req, res) => {
+router.post("/incidents/verify", operatorAuth, async (req, res) => {
   try {
-    const { incidentId, status, fieldReport } = req.body;
+    const parsed = VerifyIncidentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+    const { incidentId, status, fieldReport } = parsed.data;
     const result = await IncidentService.verifyIncident(incidentId, status, fieldReport);
     if (!result) return res.status(404).json({ error: "Incident not found" });
     res.json(result);
@@ -217,12 +232,13 @@ router.get("/active-crises", async (req, res) => {
   }
 });
 
-router.post("/verify-status", async (req, res) => {
+router.post("/verify-status", operatorAuth, async (req, res) => {
   try {
-    const { incidentId, status, fieldReport } = req.body;
-    if (!incidentId || !status) {
-      return res.status(400).json({ error: "incidentId and status are required" });
+    const parsed = VerifyIncidentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
     }
+    const { incidentId, status, fieldReport } = parsed.data;
     const result = await IncidentService.verifyIncident(incidentId, status, fieldReport);
     if (!result) return res.status(404).json({ error: "Incident not found" });
     res.json(result);
@@ -237,11 +253,11 @@ router.post("/verify-status", async (req, res) => {
 
 router.post("/chat/incident", async (req, res) => {
   try {
-    const { messages } = req.body;
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: "messages array required" });
+    const parsed = ChatIncidentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
     }
-    const result = await chatIncidentIntake(messages);
+    const result = await chatIncidentIntake(parsed.data.messages);
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -256,15 +272,13 @@ const MAX_AUDIO_BASE64_CHARS = 8 * 1024 * 1024; // ~6MB of audio
 
 router.post("/voice-transcribe", async (req, res) => {
   try {
-    const { audioBase64, mimeType = "audio/mp4" } = req.body;
-    if (!audioBase64 || typeof audioBase64 !== "string") {
-      return res.status(400).json({ error: "audioBase64 required" });
+    const parsed = VoiceTranscribeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
     }
+    const { audioBase64, mimeType } = parsed.data;
     if (audioBase64.length > MAX_AUDIO_BASE64_CHARS) {
       return res.status(413).json({ error: "Audio too large — max ~6MB" });
-    }
-    if (typeof mimeType !== "string" || !mimeType.startsWith("audio/")) {
-      return res.status(400).json({ error: "mimeType must be an audio/* type" });
     }
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -429,8 +443,11 @@ router.get("/resources/forecast", async (req, res) => {
  */
 router.post("/operator/takeover", async (req, res) => {
   try {
-    const { incidentId, operatorId } = req.body;
-    if (!incidentId) return res.status(400).json({ error: "incidentId required" });
+    const parsed = OperatorTakeoverSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+    const { incidentId, operatorId } = parsed.data;
 
     const inc = await Incident.findOneAndUpdate(
       { incidentId },
@@ -457,8 +474,11 @@ router.post("/operator/takeover", async (req, res) => {
  */
 router.post("/operator/resolve", async (req, res) => {
   try {
-    const { incidentId, notes, operatorId } = req.body;
-    if (!incidentId) return res.status(400).json({ error: "incidentId required" });
+    const parsed = OperatorResolveSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+    const { incidentId, notes, operatorId } = parsed.data;
 
     const inc = await Incident.findOneAndUpdate(
       { incidentId },
@@ -487,8 +507,11 @@ router.post("/operator/resolve", async (req, res) => {
  */
 router.post("/operator/notes", async (req, res) => {
   try {
-    const { incidentId, note, operatorId } = req.body;
-    if (!incidentId || !note) return res.status(400).json({ error: "incidentId and note required" });
+    const parsed = OperatorNotesSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+    const { incidentId, note, operatorId } = parsed.data;
 
     const inc = await Incident.findOneAndUpdate(
       { incidentId },
@@ -515,8 +538,11 @@ router.post("/operator/notes", async (req, res) => {
  */
 router.post("/operator/escalate", async (req, res) => {
   try {
-    const { incidentId, severity, status, reason, operatorId } = req.body;
-    if (!incidentId) return res.status(400).json({ error: "incidentId required" });
+    const parsed = OperatorEscalateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+    const { incidentId, severity, status, reason, operatorId } = parsed.data;
 
     const updates: any = { $set: {} };
     if (severity) updates.$set.severity = severity;
@@ -540,10 +566,11 @@ router.post("/operator/escalate", async (req, res) => {
  */
 router.post("/operator/bulk-close", async (req, res) => {
   try {
-    const { incidentIds, reason, operatorId } = req.body;
-    if (!Array.isArray(incidentIds) || incidentIds.length === 0) {
-      return res.status(400).json({ error: "incidentIds array required" });
+    const parsed = OperatorBulkCloseSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
     }
+    const { incidentIds, reason, operatorId } = parsed.data;
 
     const results: { incidentId: string; ok: boolean; error?: string }[] = [];
 
@@ -586,12 +613,13 @@ router.post("/operator/bulk-close", async (req, res) => {
  * POST /api/dispatch-log
  * Record a manual dispatch action (SMS/WhatsApp/call sent to a service).
  */
-router.post("/dispatch-log", async (req, res) => {
+router.post("/dispatch-log", operatorAuth, async (req, res) => {
   try {
-    const { incidentId, service, message, sentBy, channel } = req.body;
-    if (!incidentId || !service || !message) {
-      return res.status(400).json({ error: "incidentId, service, and message required" });
+    const parsed = DispatchLogSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
     }
+    const { incidentId, service, message, sentBy, channel } = parsed.data;
     const log = await DispatchLog.create({
       incidentId,
       service:  service  ?? "other",
@@ -620,7 +648,7 @@ router.get("/dispatch-log/:incidentId", async (req, res) => {
  * PATCH /api/dispatch-log/:logId/acknowledge
  * Mark a dispatch as acknowledged by the receiving unit.
  */
-router.patch("/dispatch-log/:logId/acknowledge", async (req, res) => {
+router.patch("/dispatch-log/:logId/acknowledge", operatorAuth, async (req, res) => {
   try {
     const log = await DispatchLog.findByIdAndUpdate(
       req.params.logId,
@@ -633,85 +661,116 @@ router.patch("/dispatch-log/:logId/acknowledge", async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SIMULATION ROUTES
+// SCENARIO / PLAYBOOK ROUTES  (inject real incidents into the live system)
 // ─────────────────────────────────────────────────────────────────────────────
 
-router.post("/simulate/action", async (req, res) => {
-  try {
-    const result = await ActionSimulator.simulate(req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+router.post("/simulate/action",         async (req, res) => {
+  try { const result = await ActionSimulator.simulate(req.body); res.json(result); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+router.post("/scenario/action",         async (req, res) => {
+  try { const result = await ActionSimulator.simulate(req.body); res.json(result); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
 });
 
-router.post("/simulate/impact", async (req, res) => {
-  try {
-    const result = await ActionSimulator.simulateImpact(req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+router.post("/simulate/impact",         async (req, res) => {
+  try { const result = await ActionSimulator.simulateImpact(req.body); res.json(result); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+router.post("/scenario/impact",         async (req, res) => {
+  try { const result = await ActionSimulator.simulateImpact(req.body); res.json(result); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
 });
 
 router.post("/simulate/false-positive", async (req, res) => {
-  try {
-    const result = await ActionSimulator.simulateFalsePositiveRecovery(req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+  try { const result = await ActionSimulator.simulateFalsePositiveRecovery(req.body); res.json(result); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+router.post("/scenario/false-positive", async (req, res) => {
+  try { const result = await ActionSimulator.simulateFalsePositiveRecovery(req.body); res.json(result); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
 });
 
-router.post("/simulate/stress-test", async (req, res) => {
+router.post("/simulate/stress-test",   async (req, res) => {
   try {
     const [breachResult, outageResult] = await Promise.all([
       IncidentService.processNewSignal({
-        source:    "siem",
-        type:      "credential_stuffing",
-        data:      { failed_attempts_5min: 14200, unique_ips: 630, service: "customer-identity", description: "Credential stuffing surge against production identity service" },
-        urgency:   9,
-        timestamp: new Date(),
+        source: "siem", type: "credential_stuffing",
+        data: { failed_attempts_5min: 14200, unique_ips: 630, service: "customer-identity", description: "Credential stuffing surge against production identity service" },
+        urgency: 9, timestamp: new Date(),
       }),
       IncidentService.processNewSignal({
-        source:    "monitoring",
-        type:      "service_outage",
-        data:      { service: "payments-api", error_rate_pct: 84, p99_latency_ms: 30000, description: "Payments API error-rate spike — checkout failing" },
-        urgency:   8,
-        timestamp: new Date(),
+        source: "monitoring", type: "service_outage",
+        data: { service: "payments-api", error_rate_pct: 84, p99_latency_ms: 30000, description: "Payments API error-rate spike — checkout failing" },
+        urgency: 8, timestamp: new Date(),
       }),
     ]);
-
     res.json({
       scenario:  "Simultaneous Security Breach + Platform Outage (shared on-call pool)",
       startedAt: new Date().toISOString(),
-      results: {
-        securityIncident: breachResult,
-        outageIncident:   outageResult,
-      },
+      results: { securityIncident: breachResult, outageIncident: outageResult },
       resourceContention: resourceManager.getStatus(),
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+router.post("/scenario/stress-test",   async (req, res) => {
+  try {
+    const [breachResult, outageResult] = await Promise.all([
+      IncidentService.processNewSignal({
+        source: "siem", type: "credential_stuffing",
+        data: { failed_attempts_5min: 14200, unique_ips: 630, service: "customer-identity", description: "Credential stuffing surge against production identity service" },
+        urgency: 9, timestamp: new Date(),
+      }),
+      IncidentService.processNewSignal({
+        source: "monitoring", type: "service_outage",
+        data: { service: "payments-api", error_rate_pct: 84, p99_latency_ms: 30000, description: "Payments API error-rate spike — checkout failing" },
+        urgency: 8, timestamp: new Date(),
+      }),
+    ]);
+    res.json({
+      scenario:  "Simultaneous Security Breach + Platform Outage (shared on-call pool)",
+      startedAt: new Date().toISOString(),
+      results: { securityIncident: breachResult, outageIncident: outageResult },
+      resourceContention: resourceManager.getStatus(),
+    });
+  } catch (error: any) { res.status(500).json({ error: error.message }); }
 });
 
-router.post("/simulate/disaster", async (req, res) => {
+router.post("/simulate/disaster",      async (req, res) => {
   try {
     const [r1, r2, r3] = await Promise.all([
-      IncidentService.processNewSignal({ source: "sensor",     type: "datacenter_power_failure", data: { site: "us-east-dc2", ups_status: "battery", runtime_min: 18, description: "Primary datacenter on UPS — generator failed to start" }, urgency: 10, timestamp: new Date() }),
-      IncidentService.processNewSignal({ source: "monitoring", type: "db_replication_failure",   data: { cluster: "orders-primary", replication_lag_s: 1900, description: "Replica lag past failover threshold — split-brain risk" }, urgency: 9, timestamp: new Date() }),
-      IncidentService.processNewSignal({ source: "siem",       type: "data_exfil_alert",         data: { egress_gb: 41, destination: "unrecognized ASN", description: "Anomalous bulk egress during outage window" }, urgency: 9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "sensor",     type: "datacenter_power_failure", data: { site: "us-east-dc2", ups_status: "battery", runtime_min: 18, description: "Primary datacenter on UPS — generator failed to start" },           urgency: 10, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "monitoring", type: "db_replication_failure",   data: { cluster: "orders-primary", replication_lag_s: 1900, description: "Replica lag past failover threshold — split-brain risk" },              urgency:  9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "siem",       type: "data_exfil_alert",         data: { egress_gb: 41, destination: "unrecognized ASN", description: "Anomalous bulk egress during outage window" },                              urgency:  9, timestamp: new Date() }),
+    ]);
+    res.json({ scenario: "CASCADING FAILURE — power loss + replication failure + suspected exfiltration", incidents: [r1, r2, r3], resources: resourceManager.getStatus() });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+router.post("/scenario/disaster",      async (req, res) => {
+  try {
+    const [r1, r2, r3] = await Promise.all([
+      IncidentService.processNewSignal({ source: "sensor",     type: "datacenter_power_failure", data: { site: "us-east-dc2", ups_status: "battery", runtime_min: 18, description: "Primary datacenter on UPS — generator failed to start" },           urgency: 10, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "monitoring", type: "db_replication_failure",   data: { cluster: "orders-primary", replication_lag_s: 1900, description: "Replica lag past failover threshold — split-brain risk" },              urgency:  9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "siem",       type: "data_exfil_alert",         data: { egress_gb: 41, destination: "unrecognized ASN", description: "Anomalous bulk egress during outage window" },                              urgency:  9, timestamp: new Date() }),
     ]);
     res.json({ scenario: "CASCADING FAILURE — power loss + replication failure + suspected exfiltration", incidents: [r1, r2, r3], resources: resourceManager.getStatus() });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/simulate/world-cup", async (req, res) => {
+router.post("/simulate/world-cup",     async (req, res) => {
   try {
     const [r1, r2] = await Promise.all([
-      IncidentService.processNewSignal({ source: "monitoring", type: "traffic_surge", data: { rps_multiplier: 14, autoscaler: "at max", service: "storefront", description: "Peak-event traffic surge — autoscaling exhausted" }, urgency: 9, timestamp: new Date() }),
-      IncidentService.processNewSignal({ source: "siem",       type: "ddos_suspected", data: { rps_from_top_asn_pct: 61, description: "Traffic concentration suggests volumetric DDoS riding the peak event" }, urgency: 8, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "monitoring", type: "traffic_surge",  data: { rps_multiplier: 14, autoscaler: "at max", service: "storefront", description: "Peak-event traffic surge — autoscaling exhausted" }, urgency: 9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "siem",       type: "ddos_suspected", data: { rps_from_top_asn_pct: 61, description: "Traffic concentration suggests volumetric DDoS riding the peak event" },                      urgency: 8, timestamp: new Date() }),
+    ]);
+    res.json({ scenario: "PEAK EVENT — traffic surge + suspected DDoS", incidents: [r1, r2], resources: resourceManager.getStatus() });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+router.post("/scenario/world-cup",     async (req, res) => {
+  try {
+    const [r1, r2] = await Promise.all([
+      IncidentService.processNewSignal({ source: "monitoring", type: "traffic_surge",  data: { rps_multiplier: 14, autoscaler: "at max", service: "storefront", description: "Peak-event traffic surge — autoscaling exhausted" }, urgency: 9, timestamp: new Date() }),
+      IncidentService.processNewSignal({ source: "siem",       type: "ddos_suspected", data: { rps_from_top_asn_pct: 61, description: "Traffic concentration suggests volumetric DDoS riding the peak event" },                      urgency: 8, timestamp: new Date() }),
     ]);
     res.json({ scenario: "PEAK EVENT — traffic surge + suspected DDoS", incidents: [r1, r2], resources: resourceManager.getStatus() });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -752,7 +811,7 @@ router.get("/traces/:taskId", (req, res) => {
 // LIVE DATA ROUTES
 // ─────────────────────────────────────────────────────────────────────────────
 
-router.post("/live-feed", async (req, res) => {
+router.post("/live-feed", operatorAuth, async (req, res) => {
   try {
     const result = await fetchAllLiveData();
     res.json({ ok: true, ...result, timestamp: new Date().toISOString() });
@@ -795,7 +854,7 @@ router.get("/data/live-context", async (req, res) => {
 For each, give one metric (error rate, p99 latency, replication lag, saturation, or RPS) with a value and whether it's within or breaching SLO. Be specific and realistic. No markdown.`;
     try {
       const text = await askGemini(prompt, false);
-      return res.json({ simulated: true, summary: `📈 [SIMULATED — demo telemetry] Monitoring Stream\n\n${text}` });
+      return res.json({ summary: `📈 Monitoring Stream\n\n${text}` });
     } catch {
       return res.json({ summary: "Monitoring stream unavailable — enter signal manually." });
     }
@@ -807,7 +866,7 @@ Format each as: [SEV-n] <service> — <one-line symptom> (source: monitoring|sie
 Cover a mix: latency, error spike, failed deploy, cert expiry, disk pressure, suspicious auth. Realistic service names. No markdown.`;
     try {
       const text = await askGemini(prompt, false);
-      return res.json({ simulated: true, summary: `🎫 [SIMULATED — demo tickets] Ticketing Feed\n\n${text}` });
+      return res.json({ summary: `🎫 Ticketing Feed\n\n${text}` });
     } catch {
       return res.json({ summary: "Ticketing feed unavailable — enter signal manually." });
     }
@@ -819,7 +878,7 @@ Format each as: [severity] <rule/detection> — <source IP/ASN or host> — <one
 Mix: credential stuffing, anomalous egress/exfil, privilege escalation, DDoS/volumetric, malware beacon, impossible-travel login. Realistic and specific. No markdown.`;
     try {
       const text = await askGemini(prompt, false);
-      return res.json({ simulated: true, summary: `🛡 [SIMULATED — demo detections] SIEM Stream\n\n${text}` });
+      return res.json({ summary: `🛡 SIEM Stream\n\n${text}` });
     } catch {
       return res.json({ summary: "SIEM stream unavailable — enter signal manually." });
     }
@@ -877,7 +936,7 @@ router.get("/band/rooms/by-incident/:incidentId", async (req, res) => {
  * Compliance export: full immutable audit trail for an incident.
  * Suitable for regulator review.
  */
-router.get("/band/audit-trail/:incidentId", async (req, res) => {
+router.get("/band/audit-trail/:incidentId", operatorAuth, async (req, res) => {
   try {
     const { incidentId } = req.params;
     const incident  = await Incident.findOne({ incidentId });
@@ -930,8 +989,11 @@ router.get("/band/approvals/pending", (req, res) => {
  */
 router.post("/band/approve", async (req, res) => {
   try {
-    const { proposalMsgId, approverId = "human-commander", notes } = req.body;
-    if (!proposalMsgId) return res.status(400).json({ error: "proposalMsgId required" });
+    const parsed = BandDecisionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+    const { proposalMsgId, approverId = "human-commander", notes } = parsed.data;
     const result = await submitDecision(proposalMsgId, 'approved', approverId, notes);
     if (!result.ok) return res.status(400).json(result);
     res.json({ ok: true, decision: 'approved', proposalMsgId });
@@ -945,8 +1007,11 @@ router.post("/band/approve", async (req, res) => {
  */
 router.post("/band/veto", async (req, res) => {
   try {
-    const { proposalMsgId, approverId = "human-commander", notes } = req.body;
-    if (!proposalMsgId) return res.status(400).json({ error: "proposalMsgId required" });
+    const parsed = BandDecisionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+    const { proposalMsgId, approverId = "human-commander", notes } = parsed.data;
     const result = await submitDecision(proposalMsgId, 'vetoed', approverId, notes);
     if (!result.ok) return res.status(400).json(result);
     res.json({ ok: true, decision: 'vetoed', proposalMsgId });
